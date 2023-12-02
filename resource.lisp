@@ -5,7 +5,84 @@
 (in-package :resource-machine)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Helpers
+;; Data Type declarations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(deftype list-of (ty)
+  `(or (cons ,ty (or null cons)) null))
+
+(defclass resource ()
+  (;; 𝔽ₗ
+   (pred-hash      :accessor hash     :type integer       :initarg :hash :initform 0)
+   ;; 𝔽ₗₐₑₗ
+   (label          :accessor label    :type integer       :initarg :label :initform 0)
+   ;; 𝔽Q
+   (quantity       :accessor quantity :type integer       :initarg :quantity :initform 0)
+   ;; {𝔽ᵥ}
+   (data           :accessor data     :type (list-of integer) :initarg :data :initform nil)
+   ;; 𝔽₂
+   (ephemorability :accessor eph      :type (integer 0 1) :initarg :eph :initform 0)
+   ;; 𝔽ₙₒₙₑ
+   (nonce          :accessor nonce    :type integer       :initarg :nonce :initform 0)
+   ;; 𝔽ₙₚₖ
+   (nullifier-key  :accessor npk      :type integer       :initarg :npk :initform 0)
+   ;; Fᵣₛₑₑ
+   (random-seed    :accessor rseed    :type integer       :initarg :rseed :initform 0)))
+
+(defclass partial-transaction ()
+  (;; {𝔽ₐₙ}
+   (merkle-roots :accessor ans   :type (list-of integer) :initarg :ans   :initform nil)
+   ;; {𝔽ₘ}
+   (commitments  :accessor cms   :type (list-of integer) :initarg :cms   :initform nil)
+   ;; {𝔽ₙ}
+   (nullifiers   :accessor nfs   :type (list-of integer) :initarg :nfs   :initform nil)
+   ;; 𝔽ₚ
+   (proof-record :accessor pr    :type list :initarg :pr    :initform nil)
+   ;; 𝔽
+   (delta        :accessor delta :type list :initarg :delta :initform nil)
+   ;; {(𝔽ₖₑ, d)}
+   (extra        :accessor extra :type (list-of integer) :initarg :extra :initform nil)
+   ;; Φ
+   (preference   :accessor pref  :type function          :initarg :pref :initform #'identity)))
+
+;; A resource with a specified hash function
+(defclass resource-hash (resource)
+  ((hash-commitment :accessor hcm   :initform #'sxhash)
+   (hash-nullifier  :accessor hnf   :initform #'sxhash)
+   (hash-kind       :accessor hkind :initform #'sxhash)
+   (hash-delta      :accessor hΔ    :initform #'sxhash)))
+
+(defclass proof-output ()
+  ((program     :accessor program     :initarg :program     :initform 0)
+   (commitments :accessor commitments :initarg :commitments :initform 0)
+   (nullifiers  :accessor nullifiers  :initarg :nullifiers  :initform 0)
+   (inputs      :accessor inputs      :initarg :inputs      :initform 0)))
+
+(defclass nullifyable-resouce ()
+  ((resource :accessor resource
+             :type resource
+             :initform (error "provide resource")
+             :initarg :resource)
+   (nullifier-private-key :accessor npr-key
+                          :type ed25519-private-key
+                          :initarg :npr-key))
+  (:documentation
+   "A resource with the given private nullifier key to properly nullify it"))
+
+
+(defmacro define-generic-print (type)
+  `(defmethod print-object ((obj ,type) stream)
+     (pprint-logical-block (stream nil)
+       (print-unreadable-object (obj stream :type t)
+         (format stream "~2I~{~_~A~^ ~}" (to-list obj))))))
+
+(define-generic-print resource)
+(define-generic-print partial-transaction)
+(define-generic-print proof-output)
+(define-generic-print nullifyable-resouce)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Internal Interface helpers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -67,10 +144,12 @@ RESOURCE-MACHINE> (parse-inner '(mode))
               (list (or data (gensym "DATA")) c-res n-res))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Helpers
+;; Main Internal Interface abstractions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defmacro define-predicate (function-name (mode-pub-priv &key nullified created data) &body body)
+(defmacro define-predicate (function-name
+                            (mode-pub-priv &key nullified created data (fixed-label 0))
+                            &body body)
   "We define out a predicate, this constitutes a few things:
 
 If the function is named f, then we define the following
@@ -82,7 +161,7 @@ make-resource-f: creating the resource
   (let* ((unparsed (list mode-pub-priv :nullified nullified
                                        :created created
                                        :data data))
-         (top-argument-names (parse-predicate-arguments unparsed))
+         (top-argument-names  (parse-predicate-arguments unparsed))
          (inner-argument-list (parse-inner unparsed))
 
          (hash-value (sxhash (list* unparsed body)))
@@ -102,15 +181,16 @@ make-resource-f: creating the resource
                (list ,@top-argument-names)
              (declare (ignorable ,@(alexandria:flatten inner-argument-list)))
 
-             (let ((,result-name ,@body))
+             (let ((,result-name (progn ,@body)))
                (assert (typep ,result-name 'boolean))
                (make-instance
                 'proof-output
                 :commitments ,commitments-variable
                 :nullifiers ,nullifier-variable
+                :inputs ,public-arguments
                 :program (lambda (public-again)
                            (bool->int
-                            (and (check-proof-correspodence ,public-arguments
+                            (and (check-proof-correspondence ,public-arguments
                                                             public-again)
                                  ,result-name)))))))
 
@@ -118,9 +198,9 @@ make-resource-f: creating the resource
                               (symbol-package function-name))
          ,hash-value)
 
-       (defun ,make-fn
-           ,(append data-list
-             `(&key (eph 0) (nonce 0) (npk 0) (rseed 0) (quantity 0) (label 0)))
+       (defun ,make-fn (,@data-list &key
+                                      (eph 0)   (nonce 0)    (npk 0)
+                                      (rseed 0) (quantity 0) (label ,fixed-label))
          (make-instance 'resource :eph eph :nonce nonce :npk npk :rseed rseed
                                   :quantity quantity
                                   :label label
@@ -130,79 +210,51 @@ make-resource-f: creating the resource
        (setf (gethash ,hash-value *hash-functions*)
              (symbol-function ',function-name)))))
 
+
+;; example of define-predicate in action
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (define-predicate test-example ((mode))
     (= 0 mode)))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Data Type declarations
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(deftype list-of (ty)
-  `(or (cons ,ty (or null cons)) null))
-
-(defclass resource ()
-  (;; 𝔽ₗ
-   (pred-hash      :accessor hash     :type integer       :initarg :hash :initform 0)
-   ;; 𝔽ₗₐₑₗ
-   (label          :accessor label    :type integer       :initarg :label :initform 0)
-   ;; 𝔽Q
-   (quantity       :accessor quantity :type integer       :initarg :quantity :initform 0)
-   ;; {𝔽ᵥ}
-   (data           :accessor data     :type (list-of integer) :initarg :data :initform nil)
-   ;; 𝔽₂
-   (ephemorability :accessor eph      :type (integer 0 1) :initarg :eph :initform 0)
-   ;; 𝔽ₙₒₙₑ
-   (nonce          :accessor nonce    :type integer       :initarg :nonce :initform 0)
-   ;; 𝔽ₙₚₖ
-   (nullifier-key  :accessor npk      :type integer       :initarg :npk :initform 0)
-   ;; Fᵣₛₑₑ
-   (random-seed    :accessor rseed    :type integer       :initarg :rseed :initform 0)))
-
-(defclass partial-transaction ()
-  (;; {𝔽ₐₙ}
-   (merkle-roots :accessor ans   :type (list-of integer) :initarg :ans   :initform nil)
-   ;; {𝔽ₘ}
-   (commitments  :accessor cms   :type (list-of integer) :initarg :cms   :initform nil)
-   ;; {𝔽ₙ}
-   (nullifiers   :accessor nfs   :type (list-of integer) :initarg :nfs   :initform nil)
-   ;; 𝔽ₚ
-   (proof-record :accessor pr    :type list :initarg :pr    :initform nil)
-   ;; 𝔽
-   (delta        :accessor delta :type list :initarg :delta :initform nil)
-   ;; {(𝔽ₖₑ, d)}
-   (extra        :accessor extra :type (list-of integer) :initarg :extra :initform nil)
-   ;; Φ
-   (preference   :accessor pref  :type function          :initarg :pref :initform #'identity)))
-
-;; A resource with a specified hash function
-(defclass resource-hash (resource)
-  ((hash-commitment :accessor hcm   :initform #'sxhash)
-   (hash-nullifier  :accessor hnf   :initform #'sxhash)
-   (hash-kind       :accessor hkind :initform #'sxhash)
-   (hash-delta      :accessor hΔ    :initform #'sxhash)))
-
-(defclass proof-output ()
-  ((program     :accessor program :initarg :program :initform 0)
-   (commitments :accessor commitments :initarg :commitments :initform 0)
-   (nullifiers  :accessor nullifiers :initarg :nullifiers :initform 0)))
-
-
-(defmacro define-generic-print (type)
-  `(defmethod print-object ((obj ,type) stream)
-     (pprint-logical-block (stream nil)
-       (print-unreadable-object (obj stream :type t)
-         (format stream "~2I~{~_~A~^ ~}" (to-list obj))))))
-
-(define-generic-print resource)
-(define-generic-print partial-transaction)
-(define-generic-print proof-output)
+(-> create-intent (&key
+                   (:commited  (list-of resource))
+                   (:nullified (list-of nullifyable-resouce))
+                   (:anchors   (list-of integer)))
+    partial-transaction)
+(defun create-intent (&key nullified commited anchors)
+  "Creates an intent"
+  (let* ((commitments  (mapcar #'commitment commited))
+         (nullifiers   (mapcar (lambda (n)
+                                 (create-nullifier (resource n) (npr-key n)))
+                               nullified))
+         (n-resources  (mapcar #'resource nullified))
+         (public-data  (list nullifiers commitments))
+         (private-data (list n-resources commited)))
+    (flet ((create-proof (created-or-nullified resource)
+             (prove (gethash (hash resource) *hash-functions*)
+                    (cons created-or-nullified public-data)
+                    (cons (data resource)      private-data))))
+      (values
+       (make-instance 'partial-transaction
+                      :cms commitments
+                      :nfs nullifiers
+                      ;; For the transparent case we can just calculate this on the fly
+                      :delta (append (mapcar (lambda (x) (list (hash x) (- (quantity x))))
+                                             n-resources)
+                                     (mapcar (lambda (x) (list (hash x) (quantity x)))
+                                             commited))
+                      :ans anchors
+                      ;; this ensures that we have ran the VPS
+                      :pr (cons (prove #'compliance-proof public-data private-data)
+                                ;; 1 for created, 0 for consumed
+                                (append (mapcar (lambda (x) (create-proof 1 x)) commited)
+                                        (mapcar (lambda (x) (create-proof 0 x)) n-resources))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Prove and Verify functions
+;; This is the external interface to the system
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(-> prove ((-> (list list) proof-output) list list) proof-output)
 ;; set of commitments and nullifiers
 ;; custom witnesses, what logics, I.E. for fib the value we wish to compute really
 ;; hash(resource) --> commitments
@@ -211,6 +263,8 @@ make-resource-f: creating the resource
 ;;   + we also send circuit specific data here as well (this will be the first)
 ;; commitment and nullifiers are the public inputs (instances)
 ;; the output should have commitments that we pass around publicly
+
+(-> prove ((-> (list list) proof-output) list list) proof-output)
 (defun prove (program instance witness)
   ;; create assertions on length for better error messages
   (values
@@ -258,23 +312,15 @@ make-resource-f: creating the resource
 (-> verify (list list proof-output) boolean)
 (defun verify (key instance proof)
   (declare (ignore key))
-  (values
-   (funcall (program proof) instance)))
-
+  (values (funcall (program proof) instance)))
 
 ;; garbage unfinished
-(defun check-proof-correspondence (valid given)
-  (every (lambda (x y)
-           (and (= (commitment x) (commitment y))))
-         valid
-         given))
+(-> check-proof-correspondence ((list-of integer) (list-of integer)) boolean)
+(defun check-proof-correspondence (initial new)
+  (equalp initial new))
 
-;; garbage unfinished
-(-> check-proof-correspodence ((list-of integer) (list-of integer)) boolean)
-(defun check-proof-correspodence (x y)
-  (equalp x y))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Computed data
+;; Computed hashed data
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defgeneric to-list (class)
@@ -297,8 +343,8 @@ make-resource-f: creating the resource
   (:method ((o standard-object))
     (commitment o)))
 
-(defgeneric nullifier (resource)
-  (:documentation "A resource commitment key"))
+(defgeneric nullifier-hash (resource)
+  (:documentation "The hashed nullifier-hash message of a given resource"))
 
 (defgeneric kind (resource)
   (:documentation "The kind of resource"))
@@ -308,7 +354,8 @@ make-resource-f: creating the resource
 ;; - sum(qⱼ₁ * kindⱼ₁ + rⱼ₁ * base_point … qⱼₙ * kindⱼₙ + rⱼₙ * base_point)
 ;; = r * base_point
 (defgeneric delta (resource)
-  (:documentation "Total quantity of kinds. This is the binding signature implementation. See "))
+  (:documentation "Total quantity of kinds. This is the binding signature implementation.
+This should be an elliptic curve hash"))
 
 (defgeneric note-cm (resource)
   (:documentation "Total quantity of kinds"))
@@ -321,7 +368,7 @@ make-resource-f: creating the resource
                     (c2mop:compute-slots (find-class-safe 'resource)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Data to be hashed
+;; Hashed
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; || means cons
@@ -356,7 +403,7 @@ make-resource-f: creating the resource
 (defmethod commitment ((r resource))
   (sxhash (commitment-data r)))
 
-(defmethod nullifier ((r resource))
+(defmethod nullifier-hash ((r resource))
   (sxhash (nullifier-data r)))
 
 (defmethod kind ((r resource))
@@ -375,7 +422,7 @@ make-resource-f: creating the resource
 (defmethod commitment ((r resource-hash))
   (funcall (hcm r) (commitment-data r)))
 
-(defmethod nullifier ((r resource-hash))
+(defmethod nullifier-hash ((r resource-hash))
   (funcall (hnf r) (nullifier-data r)))
 
 (defmethod kind ((r resource-hash))
@@ -413,13 +460,12 @@ make-resource-f: creating the resource
 ;; check:
 ;;   + merkle check
 ;;   + binding signature (Basically how to achieve the balance proof)
-;;   + commitment and nullifier derivation
+;;   + commitment and nullifier-hash derivation
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Crypto Helpers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 (-> nullifier-key (ed25519-private-key) integer)
 (defun nullifier-key (key)
@@ -432,6 +478,24 @@ make-resource-f: creating the resource
 (-> reconstruct-public (integer) ed25519-public-key)
 (defun reconstruct-public (number)
   (values (make-public-key :ed25519 :y (int->octets number 32))))
+
+(-> create-nullifier (resource ed25519-private-key) integer)
+(defun create-nullifier (resource key)
+  (values
+   (octets->uint (ironclad:sign-message key (int64->octets (nullifier-hash resource)))
+                 64)))
+
+;; Question when do even have the info to call verify-nullifier?
+(-> verify-nullifier (ed25519-public-key t  (simple-array (unsigned-byte 8) (64))) t)
+(defun verify-nullifier (key message signature)
+  (verify-signature key message signature))
+
+;; (~> (~>> (make-instance 'resource)
+;;          nullifier
+;;          int64->octets
+;;          (ironclad:sign-message *private*))
+;;     (octets->uint 64)
+;;     (int->octets 64))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Logic Helpers
@@ -462,7 +526,7 @@ make-resource-f: creating the resource
 ;; Compliance program
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(-> compliance-proof ((list-of integer) (list-of resource)) proof-output)
+(-> compliance-proof ((list-of (list-of integer)) (list-of (list-of resource))) proof-output)
 (defun compliance-proof (instance witness)
   (declare (ignore instance witness))
   (values
@@ -505,12 +569,15 @@ make-resource-f: creating the resource
          ;; 1 of this kind in a transaction, or else I can steal
          t))
 
+  (defparameter *special-label-x* 1)
+  (defparameter *special-label-y* 2)
+
   ;; unfinished
-  (define-predicate x-resource ((mode public private))
+  (define-predicate x-resource ((mode public private) :fixed-label *special-label-x*)
     (equalp t private))
 
   ;; unfinished
-  (define-predicate y-resource ((mode public private))
+  (define-predicate y-resource ((mode public private) :fixed-label *special-label-y*)
     (equalp t private)))
 
 
@@ -520,9 +587,6 @@ make-resource-f: creating the resource
 
 ;; we have an x, we also have a y
 ;; we now call prove
-
-(defparameter *special-label-x* 1)
-(defparameter *special-label-y* 2)
 
 ;; we can potentially cut this, or keep this as resource x's keys
 (defparameter *private* (generate-key-pair :ed25519))
@@ -538,76 +602,37 @@ make-resource-f: creating the resource
 (defun generate-resoruce-x ()
   "Randomly generate out a resource `*x*', making a fresh private key"
   (let ((private (generate-key-pair :ed25519)))
-    (make-instance 'resource
-                   :quantity 1
-                   :label *special-label-x*
-                   :hash *x-resource*
-                   :nonce 1
-                   :npk (nullifier-key private))))
+    (make-instance 'nullifyable-resouce
+                   :resource (make-resource-x-resource
+                              :quantity 1
+                              :nonce 1
+                              :npk (nullifier-key private))
+                   :npr-key private)))
 
 (defun generate-resoruce-y ()
   "Randomly generate out a resource `*y*', making a fresh private key"
   (let ((private (generate-key-pair :ed25519)))
-    (make-instance 'resource
-                   :quantity 1
-                   :label *special-label-y*
-                   :hash *y-resource*
-                   :nonce 1
-                   :npk (nullifier-key private))))
+    (make-instance 'nullifyable-resouce
+                   :resource (make-resource-y-resource
+                              :quantity 1
+                              :nonce 1
+                              :npk (nullifier-key private))
+                   :npr-key private)))
 
 ;; swap x for y
 (defun example-intent ()
-  (let* ((private            (generate-key-pair :ed25519))
-         (resource-x         (generate-resoruce-x))
-         ;; replace with make-x-for-y-resource
-         (ephemeral-resource (make-resource-x-for-y
-                              ;; TODO generate this
-                              1 2 1
-                              :quantity 1
-                              :eph 1
-                              :npk (nullifier-key private)))
-         (public-data  (list (nullifier resource-x)
-                             (commitment ephemeral-resource)))
-         (private-data (list resource-x ephemeral-resource)))
-    (list
-     (make-instance 'partial-transaction
-                    :cms (list (commitment ephemeral-resource))
-                    :nfs (list (nullifier resource-x))
-                    ;; we need the root for x, Ι don't need to pass
-                    ;; in the fake root for ephemeral, because it's not
-                    ;; being consumed
-                    :delta (list (list *x-resource* -1) (list *x-for-y* 1))
-                    :ans (list 0)
-                    :pr (list
-                         ;; prove the resource logic for x
-                         (prove (gethash *x-resource* *hash-functions*)
-                                ;; 0 for consumed
-                                (cons 0 public-data)
-                                (cons (data resource-x) private-data))
-                         ;; compliance proof
-                         ;; this ensures that we have ran the VPS
-                         (prove #'compliance-proof public-data private-data)
-
-                         (prove (gethash *x-for-y* *hash-functions*)
-                                ;; 1 for creating
-                                (cons 1 public-data)
-                                (cons (data ephemeral-resource) private-data))))
-     ;; remember to grab the `*x-for-y*' out of this
-     private
-     ephemeral-resource)))
-
-(-> example-proof ((list-of resource) (list-of resource)) proof-output)
-(defun example-proof (instance-1 witness)
-  (let* ((only-arg (car instance-1))
-         (result (and (= 5 (kind only-arg))
-                      (> (quantity only-arg) 5))))
-    (values
-     (make-instance 'proof-output
-                    :program
-                    (lambda (instance-2)
-                      (and (check-proof-correspodence instance-1 instance-2) result))
-                    :nullifiers
-                    (mapcar #'npk witness)
-                    :commitments
-                    ;; ??
-                    nil))))
+  (let* ((resource-x (generate-resoruce-x))
+         (private    (generate-key-pair :ed25519))
+         (ephemeral-resource
+           (make-resource-x-for-y (npk (resource resource-x))
+                                  (kind (make-resource-y-resource))
+                                  1
+                                  :quantity 1
+                                  :eph 1
+                                  :npk (nullifier-key private))))
+    (list (create-intent :commited (list ephemeral-resource)
+                         :nullified (list resource-x)
+                         :anchors (list 0)) ; figure out what I ought to put here
+          (make-instance 'nullifyable-resouce
+                         :npr-key private
+                         :resource ephemeral-resource))))
