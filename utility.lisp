@@ -87,6 +87,6 @@ RESOURCE-MACHINE> (parse-inner '(mode))
             (n-res nullifiers
                    (values-list (fill-arguments nullified "RESOURCE" "NULLIFIERS"))))
       (list (list (if (listp mode) (car mode) mode)
-                  commitments
-                  nullifiers)
-            (list (or data (gensym "DATA")) c-res n-res)))))
+                  nullifiers
+                  commitments)
+            (list (or data (gensym "DATA")) n-res c-res)))))

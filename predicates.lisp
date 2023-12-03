@@ -44,8 +44,8 @@
 
 ;; unfinished
 (define-predicate x-resource ((mode public private) :fixed-label *special-label-x*)
-  (equalp t private))
+  t)
 
 ;; unfinished
 (define-predicate y-resource ((mode public private) :fixed-label *special-label-y*)
-  (equalp t private))
+  t)

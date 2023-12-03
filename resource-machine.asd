@@ -1,5 +1,5 @@
 (asdf:defsystem :resource-machine
-  :depends-on (:serapeum :ironclad :babel :cl-intbytes)
+  :depends-on (:serapeum :ironclad :babel :cl-intbytes :fset)
   :components
   ((:file "package")
    (:file "utility" :depends-on (package))

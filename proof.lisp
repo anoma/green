@@ -17,4 +17,5 @@
 (defun compliance-proof (instance witness)
   (declare (ignore instance witness))
   (values
-   (make-instance 'proof-output)))
+   (make-instance 'proof-output
+                  :program (constantly 1))))

@@ -61,10 +61,9 @@
 ;; we have to get the correct values before hand
 
 
-(-> verify (list list proof-output) boolean)
-(defun verify (key instance proof)
-  (declare (ignore key))
-  (values (funcall (program proof) instance)))
+(-> verify (proof-output) (integer 0 1))
+(defun verify (proof)
+  (values (funcall (program proof) (inputs proof))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,13 +157,13 @@ make-resource-f: creating the resource
                       :cms commitments
                       :nfs nullifiers
                       ;; For the transparent case we can just calculate this on the fly
-                      :delta (append (mapcar (lambda (x) (list (hash x) (- (quantity x))))
+                      :delta (append (mapcar (lambda (x) (list (kind x) (- (quantity x))))
                                              n-resources)
-                                     (mapcar (lambda (x) (list (hash x) (quantity x)))
+                                     (mapcar (lambda (x) (list (kind x) (quantity x)))
                                              commited))
                       :ans anchors
                       ;; this ensures that we have ran the VPS
                       :pr (cons (prove #'compliance-proof public-data private-data)
                                 ;; 1 for created, 0 for consumed
-                                (append (mapcar (lambda (x) (create-proof 1 x)) commited)
-                                        (mapcar (lambda (x) (create-proof 0 x)) n-resources))))))))
+                                (append (mapcar (lambda (x) (create-proof 0 x)) n-resources)
+                                        (mapcar (lambda (x) (create-proof 1 x)) commited))))))))

@@ -18,7 +18,6 @@
 
 (define-generic-print partial-transaction)
 
-
 ;;; PROVING SYSTEM
 ;; idk how to mock this exactly, but there is a rust api for when data
 ;; is in miden/lurk
@@ -46,3 +45,46 @@
 ;;   + merkle check
 ;;   + binding signature (Basically how to achieve the balance proof)
 ;;   + commitment and nullifier-hash derivation
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Combining Transactions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(-> combine-transactions-pairwise (partial-transaction
+                                   partial-transaction)
+    partial-transaction)
+(defun combine-transactions-pairwise (ptx1 ptx2)
+  (flet ((to-set (delta)
+           (~>> delta
+                (mapcar (lambda (x) (cons (car x) (cadr x))))
+                (fset:convert 'fset:map)))
+         (to-list (set)
+           (~>> set
+                (fset:convert 'list)
+                (mapcar (lambda (x) (list (car x) (cdr x)))))))
+    (values
+     (make-instance 'partial-transaction
+                    :extra (append (extra ptx1) (extra ptx2))
+                    :nfs   (union  (nfs ptx1)   (nfs ptx2))
+                    :cms   (union  (cms ptx1)   (cms ptx2))
+                    :ans   (union  (ans ptx1)   (ans ptx2))
+                    ;; Create a new proof that the proofs composed fine
+                    :pr    (append (pr ptx1)    (pr ptx2))
+                    ;; update to actually use a homomorphic scheme instead
+
+                    ;; That or since this is transparent, use the
+                    ;; resource as the commitment, as then we can
+                    ;; confirm it is properly done
+                    :delta (to-list
+                            (fset:map-union (to-set (delta ptx1))
+                                            (to-set (delta ptx2))
+                                            (lambda (x y) (and y x (+ x y)))))))))
+
+(-> combine-transactions (&rest partial-transaction) t)
+(defun combine-transactions (&rest ptxs)
+  (when ptxs
+    (reduce #'combine-transactions-pairwise
+            (butlast ptxs)
+            :from-end t
+            :initial-value (car (last ptxs)))))
