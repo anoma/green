@@ -18,9 +18,12 @@ defmodule Anoma.Identity.Manager do
   backend is in use).
   """
 
+  require IEx
+  require IEx.Pry
   alias Anoma.Identity.{Backend, Capabilities, Parameters}
   alias Anoma.Node.Identity.{Commitment, Decryption}
   alias Anoma.Crypto.Id
+  alias Anoma.Storage
 
   @type resp(t) :: {:ok, t} | {:error, String.t()}
 
@@ -28,17 +31,15 @@ defmodule Anoma.Identity.Manager do
 
   @spec generate(Backend.t(), Parameters.t(), Capabilities.t()) ::
           resp({instance(), Id.Extern.t()})
-  def generate(mem = %Backend.Memory{}, :ed25519, cap) do
+  def generate(mem = %Backend.MemoryNew{}, :ed25519, cap) do
     pair = Id.new_keypair()
+    salted_pair = Id.salt_keys(pair, mem.symmetric)
 
-    # TODO Store kind of mechanism for both sets of key
-    write_data = pair |> Id.salt_keys(mem.symmetric) |> Id.encode(mem.table)
-
-    write_tx = fn ->
-      :mnesia.write(write_data)
-    end
-
-    :mnesia.transaction(write_tx)
+    Storage.put(
+      mem.storage,
+      [name_space(), salted_pair.external.sign],
+      salted_pair
+    )
 
     with {:ok, links} <- start_links(pair, cap) do
       {links, pair.external}
@@ -59,6 +60,23 @@ defmodule Anoma.Identity.Manager do
       |> start_links(cap)
     else
       _ ->
+        {:error, "Failed to find key"}
+    end
+  end
+
+  @spec connect_new(Id.Extern.t(), Backend.t(), Capabilities.t()) ::
+          resp(instance())
+  def connect_new(id, mem = %Backend.MemoryNew{}, cap) do
+    salted_key = Id.salt_keys(id, mem.symmetric)
+
+    with {:ok, identity} <-
+           Storage.get(mem.storage, [name_space(), salted_key.sign]) do
+      identity
+      |> Id.unsalt_keys(mem.symmetric)
+      |> start_links(cap)
+    else
+      _ ->
+        IEx.pry()
         {:error, "Failed to find key"}
     end
   end
@@ -94,19 +112,30 @@ defmodule Anoma.Identity.Manager do
     end
   end
 
+  @spec delete_new(Id.Extern.t(), Backend.t()) :: resp(nil)
+  def delete_new(id, mem = %Backend.MemoryNew{}) do
+    salted_key = Id.salt_keys(id, mem.symmetric)
+    res = Storage.delete_key(mem.storage, [name_space(), salted_key.sign])
+
+    case res do
+      {:atomic, :ok} -> {:ok, nil}
+      _ -> {:error, "bad transaction, failed to delete key"}
+    end
+  end
+
   ############################################################
   #                           Helpers                        #
   ############################################################
 
   @spec start_links(Id.t(), Capabilities.t()) :: resp(instance())
-  defp start_links(data, :commit) do
+  def start_links(data, :commit) do
     with {:ok, cpid} <-
            Commitment.start_link({data.internal.sign, data.kind_sign}) do
       {:ok, %{commitment: cpid}}
     end
   end
 
-  defp start_links(data, :decrypt) do
+  def start_links(data, :decrypt) do
     with {:ok, dpid} <-
            Decryption.start_link(
              {data.external.encrypt, data.external.encrypt, data.kind_encrypt}
@@ -115,7 +144,7 @@ defmodule Anoma.Identity.Manager do
     end
   end
 
-  defp start_links(data, :commit_and_decrypt) do
+  def start_links(data, :commit_and_decrypt) do
     with {:ok, cpid} <-
            Commitment.start_link({data.internal.sign, data.kind_sign}),
          {:ok, dpid} <-
@@ -125,4 +154,7 @@ defmodule Anoma.Identity.Manager do
       {:ok, %{commitment: cpid, decryption: dpid}}
     end
   end
+
+  @base_name_space "identity_manager"
+  def name_space(), do: @base_name_space
 end

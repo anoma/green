@@ -2,11 +2,13 @@ defmodule Anoma.Identity.Backend do
   @moduledoc """
   I determine which backend to use in order to generate or connect an identity.
   """
+  alias Anoma.Identity.Backend.MemoryNew
+  alias Anoma.Storage
   alias Anoma.Identity.Backend.{Memory, Remote, Local}
   alias Anoma.Crypto.Symmetric
   use TypedStruct
 
-  @type t() :: Memory.t() | Local.t() | Remote.t()
+  @type t() :: Memory.t() | Local.t() | Remote.t() | MemoryNew.t()
 
   defmodule Memory do
     @moduledoc """
@@ -33,6 +35,17 @@ defmodule Anoma.Identity.Backend do
       field(:symmetric, Symmetric.t())
       field(:nonce, binary(), default: nil)
       field(:table, atom())
+    end
+  end
+
+  defmodule MemoryNew do
+    @moduledoc """
+    XXX
+    """
+    typedstruct enforce: true do
+      field(:symmetric, Symmetric.t())
+      field(:nonce, binary(), default: nil)
+      field(:storage, Storage.t())
     end
   end
 

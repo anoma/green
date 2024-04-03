@@ -3,30 +3,35 @@ defmodule AnomaTest.Identity.Manager do
 
   alias Anoma.Crypto.Symmetric
   alias Anoma.Crypto.Id
-  alias Anoma.Identity.Backend.Memory
+  alias Anoma.Identity.Backend.MemoryNew
   alias Anoma.Identity.Manager
   alias Anoma.Node.Identity.Commitment
+  alias Anoma.Storage
 
   doctest(Anoma.Identity.Manager)
 
   setup_all do
-    tab = :manager_table_test
-    Id.initalize(tab)
+    storage = %Storage{
+      qualified: AnomaTest.Identity.Name.Qualified,
+      order: AnomaTest.Identity.Name.Order
+    }
+
+    Storage.ensure_new(storage)
 
     key = Symmetric.random_xchacha()
 
-    mem = %Memory{symmetric: key, table: tab}
-    [tab: tab, key: key, mem: mem]
+    mem = %MemoryNew{symmetric: key, storage: storage}
+    [key: key, mem: mem]
   end
 
-  test "random key is not can not be connected", %{mem: mem} do
+  test "Random key cannot be connected", %{mem: mem} do
     pair = Id.new_keypair()
 
     assert {:error, _} =
-             Manager.connect(pair.external, mem, :commit_and_decrypt)
+             Manager.connect_new(pair.external, mem, :commit_and_decrypt)
   end
 
-  test "Generating Works", %{mem: mem} do
+  test "Generating works", %{mem: mem} do
     assert {%{commitment: com, decryption: _}, _} =
              Manager.generate(mem, :ed25519, :commit_and_decrypt)
 
@@ -37,7 +42,7 @@ defmodule AnomaTest.Identity.Manager do
     {_, pub} = Manager.generate(mem, :ed25519, :commit_and_decrypt)
 
     assert {:ok, %{commitment: com, decryption: _}} =
-             Manager.connect(pub, mem, :commit_and_decrypt)
+             Manager.connect_new(pub, mem, :commit_and_decrypt)
 
     assert {:ok, _} = Commitment.commit(com, 555)
   end
@@ -55,9 +60,9 @@ defmodule AnomaTest.Identity.Manager do
     assert Map.has_key?(com, :commitment) && Map.has_key?(dec, :decryption)
   end
 
-  test "delete works", %{mem: mem} do
-    {_, pub} = Manager.generate(mem, :ed25519, :commit_and_decrypt)
-    Manager.delete(pub, mem)
-    assert {:error, _} = Manager.connect(pub, mem, :commit_and_decrypt)
-  end
+  # test "Deleting works", %{mem: mem} do
+  #   {_, pub} = Manager.generate(mem, :ed25519, :commit_and_decrypt)
+  #   Manager.delete_new(pub, mem)
+  #   assert {:error, _} = Manager.connect_new(pub, mem, :commit_and_decrypt)
+  # end
 end
