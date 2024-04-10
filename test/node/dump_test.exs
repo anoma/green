@@ -44,5 +44,7 @@ defmodule AnomaTest.Node.Dump do
     assert new_node == node
 
     DynamicSupervisor.stop(sname, :normal)
+
+    File.rm!("dump_test.txt")
   end
 end
