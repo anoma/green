@@ -103,7 +103,7 @@ defmodule Anoma.Node.Logger do
   right element will be the message.
   """
 
-  @spec get(Router.addr() | nil, Router.addr()) ::
+  @spec get(Router.addr() | nil, Router.addr() | pid()) ::
           list({list(Id.Extern.t() | integer() | atom()), String.t()}) | nil
   def get(logger, engine) do
     unless logger == nil do
@@ -149,8 +149,14 @@ defmodule Anoma.Node.Logger do
   end
 
   def handle_call({:get, logger, engine}, _from, state) do
-    {:reply, Storage.get_keyspace(state.storage, [logger.id, engine.id]),
-     state}
+    address =
+      if is_pid(engine) do
+        engine
+      else
+        engine.id
+      end
+
+    {:reply, Storage.get_keyspace(state.storage, [logger.id, address]), state}
   end
 
   ############################################################
