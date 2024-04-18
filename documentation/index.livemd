@@ -22,9 +22,10 @@ Mix.install([
    3. [Setting Up](./hoon/setting-up.livemd)
 3. [Index](./index.livemd)
 4. [Index_docs](./index_docs.livemd)
-5. [Visualization](./visualization.livemd)
+5. [Logging](./logging.livemd)
+6. [Visualization](./visualization.livemd)
    1. [Actors](./visualization/actors.livemd)
-6. [Vm_interface](./vm_interface.livemd)
+7. [Vm_interface](./vm_interface.livemd)
 
 ## TOC
 
