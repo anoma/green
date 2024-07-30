@@ -82,7 +82,7 @@ defmodule Anoma.MixProject do
       {:toml, "~> 0.7"},
       {:cairo,
        git: "https://github.com/anoma/aarm-cairo",
-       rev: "961910bfb799e25a10a8ad16c4e8e07015ba1858"},
+       rev: "4c4004a7192f5c5072cfa6f0d551622f7995e69f"},
       {:plug_crypto, "~> 2.0"},
       {:memoize, "~> 1.4.3"},
       {:msgpack, "~> 0.8.1"}
