@@ -57,8 +57,6 @@ defmodule Anoma.Node.Transport.TCPServer do
   use Transport.Server
   use TypedStruct
 
-  require Logger
-
   typedstruct do
     @typedoc """
     I am the type of the TCPServer Engine.
@@ -104,7 +102,8 @@ defmodule Anoma.Node.Transport.TCPServer do
            router: router,
            transport: transport,
            listener: l,
-           connection_pool: connection_pool
+           connection_pool: connection_pool,
+           logger: logger
          }, {:continue, :start_listener}}
 
       {:error, reason} ->
@@ -121,7 +120,8 @@ defmodule Anoma.Node.Transport.TCPServer do
     Router.start_engine(
       s.router,
       Transport.TCPConnection,
-      {:listener, s.router, s.transport, s.listener, s.connection_pool},
+      {:listener, s.router, s.transport, s.listener, s.connection_pool,
+       s.logger},
       supervisor: s.connection_pool
     )
 
