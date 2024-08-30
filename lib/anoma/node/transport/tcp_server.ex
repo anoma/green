@@ -113,6 +113,17 @@ defmodule Anoma.Node.Transport.TCPServer do
   end
 
   ############################################################
+  #                      Public RPC API                      #
+  ############################################################
+
+  @doc """
+  I expose the listener of the server
+  """
+  def listener(server) do
+    Router.call(server, :listener)
+  end
+
+  ############################################################
   #                    Genserver Behavior                    #
   ############################################################
 
@@ -126,6 +137,10 @@ defmodule Anoma.Node.Transport.TCPServer do
     )
 
     {:noreply, s}
+  end
+
+  def handle_call(:listener, _from, s) do
+    {:reply, s.listener, s}
   end
 
   ############################################################
