@@ -1,7 +1,7 @@
 defmodule Anoma.Configuration do
   @moduledoc """
   I am a configuration module. I read the provided TOML configuration file
-  and feed the apporpriate info for Node launching
+  and feed the appropriate info for Node launching
 
   The codebase has a corresponding file that can inform the user of the
   format I expect.
@@ -27,7 +27,7 @@ defmodule Anoma.Configuration do
   ############################################################
 
   @type section_format() :: [{String.t(), (term() -> boolean()), term()}]
-  @type configruation() :: [{String.t(), section_format()}]
+  @type configuration() :: [{String.t(), section_format()}]
 
   @type section_map() :: %{String.t() => term()}
   @type configuration_map() :: %{String.t() => section_map()}
@@ -72,7 +72,7 @@ defmodule Anoma.Configuration do
   ]
   @configuration_format [{"dump", @dump_format}, {"node", @node_format}]
 
-  @spec configuration_format() :: configruation
+  @spec configuration_format() :: configuration
   def configuration_format(), do: @configuration_format
 
   @spec default_configuration_location() :: Path.t()
@@ -154,7 +154,7 @@ defmodule Anoma.Configuration do
           GenServer.on_start()
   @doc """
   Given a parsed map with minimal node startup info I launch the node with
-  the appopriate name
+  the appropriate name
 
   ### Options
   see `t:launch_option/0` for the full list of optional arguments
