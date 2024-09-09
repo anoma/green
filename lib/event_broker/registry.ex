@@ -36,11 +36,13 @@ defmodule EventBroker.Registry do
     - `:registered_filters` - The map whose keys are a filter-spec dependency
     list and whose values are PID's of filter
     agents corresponding to said lists.
+    - `:registered_subscribers` - The map whose keys are a subscriber PID mapped onto their filter specs.
     Default: %{}
     """
 
     field(:supervisor, atom())
     field(:registered_filters, registered_filters, default: %{})
+    field(:registered_subscribers, registered_subscribers, default: %{})
   end
 
   def start_link(args) do
@@ -96,6 +98,19 @@ defmodule EventBroker.Registry do
           %{state | registered_filters: new_registered_filters}
         end
 
+      registered_subscribers =
+        Map.update(
+          state.registered_subscribers,
+          pid,
+          [filter_spec_list],
+          &[&1 | filter_spec_list]
+        )
+
+      new_state =
+        Map.put(new_state, :registered_subscribers, registered_subscribers)
+
+      Process.monitor(pid)
+
       GenServer.call(
         Map.get(new_state.registered_filters, filter_spec_list),
         {:subscribe, pid}
@@ -121,6 +136,21 @@ defmodule EventBroker.Registry do
 
   def handle_cast(_msg, state) do
     {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
+    new_state =
+      state.registered_subscribers
+      |> Map.get(pid, [])
+      |> Enum.reduce(state, fn filter_spec_list, state ->
+        new_registered_filters =
+          do_unsubscribe(pid, filter_spec_list, state.registered_filters)
+
+        %{state | registered_filters: new_registered_filters}
+      end)
+      |> Map.update(:registered_subscribers, %{}, &Map.delete(&1, pid))
+
+    {:noreply, new_state}
   end
 
   ############################################################
