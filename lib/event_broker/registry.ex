@@ -2,7 +2,7 @@ defmodule EventBroker.Registry do
   @moduledoc """
   I am the Registry for the PubSub system.
 
-  I am the central registry of all the topic subscirptions and filters. I
+  I am the central registry of all the topic subscriptions and filters. I
   am responsible for spawning filter agents, (un)subscribing to them, and
   keeping track of relations between them.
   """
@@ -12,12 +12,17 @@ defmodule EventBroker.Registry do
   use GenServer
   use TypedStruct
 
-  @doc """
+  @typedoc """
   I am the type of the registered filters, matching a filter agent to its
   PID.
   """
-
   @type registered_filters :: %{EventBroker.filter_spec_list() => pid()}
+
+  @typedoc """
+  I am the type of the registered subscribers. I map a subscriber pid to all
+  their filter specs.
+  """
+  @type registered_subscribers :: %{pid() => [EventBroker.filter_spec_list()]}
 
   typedstruct enforce: true do
     @typedoc """
