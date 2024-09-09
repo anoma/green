@@ -122,6 +122,84 @@ defmodule Examples.EventBroker do
   end
 
   @doc """
+  I am a function that tests the unsubscription mechanism when a subscriber goes offline.
+
+  I create two processes to subscribe to a chain, and then kill them one by one.
+
+  I check that the filters remain in the registry after the first subscriber is killed,
+  and that they are removed after the second subscriber is killed.
+  """
+
+  @spec kill_subscriber() :: boolean()
+  def kill_subscriber do
+    # assert that the registry is now empty
+    assert [[]] ==
+             :sys.get_state(EventBroker.Registry).registered_filters
+             |> Map.keys()
+
+    # spawn a first subscriber
+    first =
+      spawn(fn ->
+        Process.register(self(), :first)
+
+        EventBroker.subscribe_me(
+          EventBroker.Registry,
+          [
+            trivial_filter_spec()
+          ]
+        )
+
+        rcv = fn rcv ->
+          receive do
+            %Event{} -> :ok
+          end
+
+          rcv.(rcv)
+        end
+
+        rcv.(rcv)
+      end)
+
+    second =
+      spawn(fn ->
+        Process.register(self(), :second)
+
+        EventBroker.subscribe_me(
+          EventBroker.Registry,
+          [
+            trivial_filter_spec()
+          ]
+        )
+
+        rcv = fn rcv ->
+          receive do
+            %Event{} -> :ok
+          end
+
+          rcv.(rcv)
+        end
+
+        rcv.(rcv)
+      end)
+
+    Process.sleep(100)
+
+    # kill the first subscriber
+    Process.exit(first, :kill)
+    Process.sleep(100)
+
+    assert [[], [%EventBroker.Filters.Trivial{}]] ==
+             Map.keys(:sys.get_state(EventBroker.Registry).registered_filters)
+
+    # kill the first subscriber
+    Process.exit(second, :kill)
+    Process.sleep(100)
+
+    assert [[]] ==
+             Map.keys(:sys.get_state(EventBroker.Registry).registered_filters)
+  end
+
+  @doc """
   I am a function which sneds a million messages through a specified number
   of filters.
 
