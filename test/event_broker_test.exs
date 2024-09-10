@@ -11,5 +11,7 @@ defmodule AnomaTest.EventBroker do
     EventBroker.add_filter_on_top()
     EventBroker.complex_filter_message()
     EventBroker.non_filters_fail()
+    EventBroker.kill_subscriber()
+
   end
 end
