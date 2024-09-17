@@ -9,6 +9,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
 
   alias __MODULE__
   use TypedStruct
+  alias Anoma.ShieldedResource.ProofRecord
   alias Anoma.ShieldedResource.PartialTransaction
   alias Anoma.ShieldedResource.ComplianceOutput
   alias Anoma.Node.DummyStorage, as: Storage
@@ -224,5 +225,118 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
         nullifiers: nullifiers
     }
     |> sign()
+  end
+
+  @spec generate_resource_logic_proofs(list(binary())) :: list(binary())
+  defp generate_resource_logic_proofs(jsons) do
+    resource_logics =
+      Enum.map(jsons, &Map.get(&1, "logic"))
+      |> Enum.map(&File.read!/1)
+
+    resource_logic_inputs =
+      Enum.map(jsons, &Map.get(&1, "logic_input"))
+      |> Enum.map(&File.read!/1)
+
+    Enum.zip_with(
+      resource_logics,
+      resource_logic_inputs,
+      &ProofRecord.generate_proof/2
+    )
+  end
+
+  @spec hash_resource_logic(binary()) :: binary()
+  defp hash_resource_logic(logic) do
+    logic
+    |> :binary.bin_to_list()
+    |> Cairo.get_program_hash()
+    |> :binary.list_to_bin()
+  end
+
+  @spec update_resource_jsons(list(binary()), list(binary())) ::
+          list(binary())
+  defp update_resource_jsons(jsons, logic_hashes) do
+    Enum.zip_with(
+      jsons,
+      logic_hashes,
+      &Map.put(&1, "logic", &2)
+    )
+    |> Enum.map(&Map.delete(&1, "logic_input"))
+  end
+
+  @spec hex_to_32_byte_binary(binary()) :: binary()
+  defp hex_to_32_byte_binary(hex_string) do
+    # Step 1: Convert the hexadecimal string to an integer
+    integer_value = String.to_integer(hex_string, 16)
+
+    # Step 2: Convert the integer to a 32-byte (256-bit) binary
+    :binary.encode_unsigned(integer_value, :big) |> binary_padding(32)
+  end
+
+  @spec binary_padding(binary(), integer()) :: binary()
+  defp binary_padding(binary, size) when byte_size(binary) <= size do
+    <<0::size((size - byte_size(binary)) * 8)>> <> binary
+  end
+
+  @spec create_from_compliance_input_files(list(Path.t())) ::
+          ShieldedTransaction.t()
+  def create_from_compliance_input_files(compliance_input_files) do
+    compliance_pre_inputs =
+      Enum.map(compliance_input_files, &File.read!/1)
+      |> Enum.map(&JSON.decode!/1)
+
+    input_resources = Enum.map(compliance_pre_inputs, &Map.get(&1, "input"))
+
+    input_resource_logic_proofs =
+      generate_resource_logic_proofs(input_resources)
+
+    input_logic_hashes =
+      Enum.map(input_resource_logic_proofs, &hash_resource_logic/1)
+
+    output_resources = Enum.map(compliance_pre_inputs, &Map.get(&1, "output"))
+
+    output_resource_logic_proofs =
+      generate_resource_logic_proofs(output_resources)
+
+    output_logic_hashes =
+      Enum.map(output_resource_logic_proofs, &hash_resource_logic/1)
+
+    updated_input_resources =
+      update_resource_jsons(input_resources, input_logic_hashes)
+
+    updated_output_resources =
+      update_resource_jsons(output_resources, output_logic_hashes)
+
+    compliance_inputs =
+      Enum.zip_with(
+        compliance_pre_inputs,
+        updated_output_resources,
+        &Map.put(&1, "output", &2)
+      )
+      |> Enum.zip_with(
+        updated_input_resources,
+        &Map.put(&1, "input", &2)
+      )
+      |> Enum.map(&JSON.encode!/1)
+
+    compliance_proofs =
+      Enum.map(compliance_inputs, &ProofRecord.generate_compliance_proof/1)
+
+    ptx = %PartialTransaction{
+      logic_proofs:
+        Enum.zip_with(input_logic_hashes, output_logic_hashes, &[&1, &2])
+        |> Enum.concat(),
+      compliance_proofs: compliance_proofs
+    }
+
+    priv_keys =
+      Enum.map(compliance_pre_inputs, &Map.get(&1, "rcv"))
+      |> Enum.map(&hex_to_32_byte_binary/1)
+      |> Enum.reduce(&<>/2)
+
+    %ShieldedTransaction{
+      partial_transactions: [ptx],
+      delta: priv_keys
+    }
+    |> ShieldedTransaction.finalize()
   end
 end
