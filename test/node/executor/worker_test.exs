@@ -390,8 +390,6 @@ defmodule AnomaTest.Node.Executor.Worker do
     router: router
   } do
     alias Anoma.ShieldedResource.ShieldedTransaction
-    alias Anoma.ShieldedResource.PartialTransaction
-    alias Anoma.ShieldedResource.ProofRecord
 
     id = System.unique_integer([:positive])
 
@@ -402,57 +400,12 @@ defmodule AnomaTest.Node.Executor.Worker do
     Storage.ensure_new(storage)
     Ordering.reset(env.ordering)
 
-    compliance_inputs = """
-    {
-    "input": {
-        "logic" : "0x78641adee85319d58ec95e4d1d4127d96a9ca365e77b5e06f286e71f9d6ca70",
-        "label" : "0x12",
-        "quantity" : "0x13",
-        "data" : "0x14",
-        "eph" : true,
-        "nonce" : "0x26",
-        "npk" : "0x7752582c54a42fe0fa35c40f07293bb7d8efe90e21d8d2c06a7db52d7d9b7a1",
-        "rseed" : "0x48"
-    },
-    "output": {
-        "logic" : "0x78641adee85319d58ec95e4d1d4127d96a9ca365e77b5e06f286e71f9d6ca70",
-        "label" : "0x12",
-        "quantity" : "0x13",
-        "data" : "0x812",
-        "eph" : true,
-        "nonce" : "0x104",
-        "npk" : "0x195",
-        "rseed" : "0x16"
-    },
-    "input_nf_key": "0x1",
-    "merkle_path": [{"fst": "0x33", "snd": true}, {"fst": "0x83", "snd": false}, {"fst": "0x73", "snd": false}, {"fst": "0x23", "snd": false}, {"fst": "0x33", "snd": false}, {"fst": "0x43", "snd": false}, {"fst": "0x53", "snd": false}, {"fst": "0x3", "snd": false}, {"fst": "0x36", "snd": false}, {"fst": "0x37", "snd": false}, {"fst": "0x118", "snd": false}, {"fst": "0x129", "snd": false}, {"fst": "0x12", "snd": true}, {"fst": "0x33", "snd": false}, {"fst": "0x43", "snd": false}, {"fst": "0x156", "snd": true}, {"fst": "0x63", "snd": false}, {"fst": "0x128", "snd": false}, {"fst": "0x32", "snd": false}, {"fst": "0x230", "snd": true}, {"fst": "0x3", "snd": false}, {"fst": "0x33", "snd": false}, {"fst": "0x223", "snd": false}, {"fst": "0x2032", "snd": true}, {"fst": "0x32", "snd": false}, {"fst": "0x323", "snd": false}, {"fst": "0x3223", "snd": false}, {"fst": "0x203", "snd": true}, {"fst": "0x31", "snd": false}, {"fst": "0x32", "snd": false}, {"fst": "0x22", "snd": false}, {"fst": "0x23", "snd": true}],
-    "rcv": "0x3",
-    "eph_root": "0x4"
-    }
-    """
+    {:ok, tx} =
+      ShieldedTransaction.create_from_compliance_input_files([
+        "./test/data/compliance1_inputs.json"
+      ])
 
-    {:ok, compliance_proof} =
-      ProofRecord.generate_compliance_proof(compliance_inputs)
-
-    # TODO: make up real logic proofs when building a client
-    input_resource_logic = compliance_proof
-    output_resource_logic = compliance_proof
-
-    ptx = %PartialTransaction{
-      logic_proofs: [input_resource_logic, output_resource_logic],
-      compliance_proofs: [compliance_proof]
-    }
-
-    # Generate the binding signature
-    # priv_keys are from rcvs in compliance_inputs
-    priv_keys = :binary.copy(<<0>>, 31) <> <<3>>
-
-    rm_tx =
-      %ShieldedTransaction{
-        partial_transactions: [ptx],
-        delta: priv_keys
-      }
-      |> ShieldedTransaction.finalize()
+    rm_tx = ShieldedTransaction.finalize(tx)
 
     # Mock root history: insert the current roots to the storage
     rm_tx.roots

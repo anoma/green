@@ -228,7 +228,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
   end
 
   @spec generate_resource_logic_proofs(list(binary())) ::
-          {:ok, list(binary())} | :error
+          {:ok, list(ProofRecord.t())} | :error
   defp generate_resource_logic_proofs(jsons) do
     resource_logics_unchecked =
       Enum.map(jsons, &Map.get(&1, "logic"))
@@ -250,20 +250,28 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
       resource_logic_inputs =
         Enum.map(resource_logic_inputs_unchecked, &elem(&1, 1))
 
-      {:ok,
-       Enum.zip_with(
-         resource_logics,
-         resource_logic_inputs,
-         &ProofRecord.generate_proof/2
-       )}
+      proofs =
+        Enum.zip_with(
+          resource_logics,
+          resource_logic_inputs,
+          &ProofRecord.generate_proof/2
+        )
+
+      checked = Enum.all?(proofs, &(elem(&1, 0) == :ok))
+
+      with true <- checked do
+        {:ok, Enum.map(proofs, &elem(&1, 1))}
+      else
+        false -> :error
+      end
     else
       false -> :error
     end
   end
 
-  @spec hash_resource_logic(binary()) :: binary()
-  defp hash_resource_logic(logic) do
-    logic
+  @spec hash_resource_logic(ProofRecord.t()) :: binary()
+  defp hash_resource_logic(pr) do
+    pr.proof
     |> :binary.bin_to_list()
     |> Cairo.get_program_hash()
     |> :binary.list_to_bin()
@@ -324,15 +332,15 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
         output_resources =
           Enum.map(compliance_pre_inputs, &Map.get(&1, "output"))
 
-        with {:ok, input_resource_logic_proofs} <-
+        with {:ok, input_logic_proofs} <-
                generate_resource_logic_proofs(input_resources),
-             {:ok, output_resource_logic_proofs} <-
+             {:ok, output_logic_proofs} <-
                generate_resource_logic_proofs(output_resources) do
           input_logic_hashes =
-            Enum.map(input_resource_logic_proofs, &hash_resource_logic/1)
+            Enum.map(input_logic_proofs, &hash_resource_logic/1)
 
           output_logic_hashes =
-            Enum.map(output_resource_logic_proofs, &hash_resource_logic/1)
+            Enum.map(output_logic_proofs, &hash_resource_logic/1)
 
           updated_input_resources =
             update_resource_jsons(input_resources, input_logic_hashes)
@@ -375,8 +383,8 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
               ptx = %PartialTransaction{
                 logic_proofs:
                   Enum.zip_with(
-                    input_logic_hashes,
-                    output_logic_hashes,
+                    input_logic_proofs,
+                    output_logic_proofs,
                     &[&1, &2]
                   )
                   |> Enum.concat(),
