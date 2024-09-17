@@ -250,17 +250,17 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
       resource_logic_inputs =
         Enum.map(resource_logic_inputs_unchecked, &elem(&1, 1))
 
-      proofs =
+      proofs_unchecked =
         Enum.zip_with(
           resource_logics,
           resource_logic_inputs,
           &ProofRecord.generate_proof/2
         )
 
-      checked = Enum.all?(proofs, &(elem(&1, 0) == :ok))
+      checked = Enum.all?(proofs_unchecked, &(elem(&1, 0) == :ok))
 
       with true <- checked do
-        {:ok, Enum.map(proofs, &elem(&1, 1))}
+        {:ok, Enum.map(proofs_unchecked, &elem(&1, 1))}
       else
         false -> :error
       end
@@ -271,7 +271,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
 
   @spec hash_resource_logic(ProofRecord.t()) :: binary()
   defp hash_resource_logic(pr) do
-    pr.proof
+    pr.public_inputs
     |> :binary.bin_to_list()
     |> Cairo.get_program_hash()
     |> :binary.list_to_bin()
@@ -280,9 +280,12 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
   @spec update_resource_jsons(list(binary()), list(binary())) ::
           list(binary())
   defp update_resource_jsons(jsons, logic_hashes) do
+    hex_logic_hashes =
+      Enum.map(logic_hashes, &binary_to_hex/1)
+
     Enum.zip_with(
       jsons,
-      logic_hashes,
+      hex_logic_hashes,
       &Map.put(&1, "logic", &2)
     )
     |> Enum.map(&Map.delete(&1, "logic_input"))
@@ -290,16 +293,20 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
 
   @spec hex_to_32_byte_binary(binary()) :: binary()
   defp hex_to_32_byte_binary(hex_string) do
-    # Step 1: Convert the hexadecimal string to an integer
-    integer_value = String.to_integer(hex_string, 16)
-
-    # Step 2: Convert the integer to a 32-byte (256-bit) binary
+    hex_num_string = String.replace_prefix(hex_string, "0x", "")
+    integer_value = String.to_integer(hex_num_string, 16)
     :binary.encode_unsigned(integer_value, :big) |> binary_padding(32)
   end
 
   @spec binary_padding(binary(), integer()) :: binary()
   defp binary_padding(binary, size) when byte_size(binary) <= size do
     <<0::size((size - byte_size(binary)) * 8)>> <> binary
+  end
+
+  @spec binary_to_hex(binary()) :: String.t()
+  defp binary_to_hex(binary) do
+    integer_value = :binary.decode_unsigned(binary, :big)
+    "0x" <> Integer.to_string(integer_value, 16)
   end
 
   @spec create_from_compliance_input_files(list(Path.t())) ::
@@ -396,10 +403,11 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
                 |> Enum.map(&hex_to_32_byte_binary/1)
                 |> Enum.reduce(&<>/2)
 
-              %ShieldedTransaction{
-                partial_transactions: [ptx],
-                delta: priv_keys
-              }
+              {:ok,
+               %ShieldedTransaction{
+                 partial_transactions: [ptx],
+                 delta: priv_keys
+               }}
             else
               false -> :error
             end
