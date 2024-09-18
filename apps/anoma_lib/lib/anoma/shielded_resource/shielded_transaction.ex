@@ -231,11 +231,11 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
           {:ok, list(ProofRecord.t())} | :error
   defp generate_resource_logic_proofs(jsons) do
     resource_logics_unchecked =
-      Enum.map(jsons, &Map.get(&1, "logic"))
+      Enum.map(jsons, & &1["logic"])
       |> Enum.map(&File.read/1)
 
     resource_logic_inputs_unchecked =
-      Enum.map(jsons, &Map.get(&1, "logic_input"))
+      Enum.map(jsons, & &1["logic_input"])
       |> Enum.map(&File.read/1)
 
     checked_1 = Enum.all?(resource_logics_unchecked, &(elem(&1, 0) == :ok))
@@ -286,9 +286,9 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
     Enum.zip_with(
       jsons,
       hex_logic_hashes,
-      &Map.put(&1, "logic", &2)
+      &put_in(&1["logic"], &2)
     )
-    |> Enum.map(&Map.delete(&1, "logic_input"))
+    |> Enum.map(&elem(pop_in(&1["logic_input"]), 1))
   end
 
   @spec hex_to_32_byte_binary(binary()) :: binary()
@@ -334,7 +334,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
     with true <- checked do
       compliance_pre_inputs_unchecked =
         Enum.map(compliance_pre_inputs_content_unchecked, &elem(&1, 1))
-        |> Enum.map(&JSON.decode/1)
+        |> Enum.map(&Jason.decode(&1, objects: :ordered_objects))
 
       checked =
         Enum.all?(compliance_pre_inputs_unchecked, &(elem(&1, 0) == :ok))
@@ -344,10 +344,10 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
           Enum.map(compliance_pre_inputs_unchecked, &elem(&1, 1))
 
         input_resources =
-          Enum.map(compliance_pre_inputs, &Map.get(&1, "input"))
+          Enum.map(compliance_pre_inputs, & &1["input"])
 
         output_resources =
-          Enum.map(compliance_pre_inputs, &Map.get(&1, "output"))
+          Enum.map(compliance_pre_inputs, & &1["output"])
 
         with {:ok, input_logic_proofs} <-
                generate_resource_logic_proofs(input_resources),
@@ -369,13 +369,13 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
             Enum.zip_with(
               compliance_pre_inputs,
               updated_output_resources,
-              &Map.put(&1, "output", &2)
+              &put_in(&1["output"], &2)
             )
             |> Enum.zip_with(
               updated_input_resources,
-              &Map.put(&1, "input", &2)
+              &put_in(&1["input"], &2)
             )
-            |> Enum.map(&JSON.encode/1)
+            |> Enum.map(&Jason.encode/1)
 
           checked =
             Enum.all?(compliance_inputs_unchecked, &(elem(&1, 0) == :ok))
@@ -383,8 +383,6 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
           with true <- checked do
             compliance_inputs =
               Enum.map(compliance_inputs_unchecked, &elem(&1, 1))
-
-            IO.inspect(compliance_inputs)
 
             compliance_proofs_unchecked =
               Enum.map(
@@ -411,7 +409,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
               }
 
               priv_keys =
-                Enum.map(compliance_pre_inputs, &Map.get(&1, "rcv"))
+                Enum.map(compliance_pre_inputs, & &1["rcv"])
                 |> Enum.map(&hex_to_32_byte_binary/1)
                 |> Enum.reduce(&<>/2)
 
