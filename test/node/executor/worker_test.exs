@@ -532,7 +532,8 @@ defmodule AnomaTest.Node.Executor.Worker do
 
     {:ok, tx} =
       ShieldedTransaction.create_from_compliance_input_files([
-        "./test/data/compliance1_inputs.json"
+        "./test/data/compliance1_inputs.json",
+        "./test/data/compliance2_inputs.json"
       ])
 
     rm_tx = ShieldedTransaction.finalize(tx)
