@@ -293,9 +293,20 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
 
   @spec hex_to_32_byte_binary(binary()) :: binary()
   defp hex_to_32_byte_binary(hex_string) do
-    hex_num_string = String.replace_prefix(hex_string, "0x", "")
-    integer_value = String.to_integer(hex_num_string, 16)
-    :binary.encode_unsigned(integer_value, :big) |> binary_padding(32)
+    hex_num_string_0 = String.replace_prefix(hex_string, "0x", "")
+
+    hex_num_string =
+      if rem(String.length(hex_num_string_0), 2) == 0 do
+        hex_num_string_0
+      else
+        "0" <> hex_num_string_0
+      end
+
+    with {:ok, str} <- Base.decode16(hex_num_string) do
+      binary_padding(str, 32)
+    else
+      _ -> <<>>
+    end
   end
 
   @spec binary_padding(binary(), integer()) :: binary()
@@ -305,8 +316,7 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
 
   @spec binary_to_hex(binary()) :: String.t()
   defp binary_to_hex(binary) do
-    integer_value = :binary.decode_unsigned(binary, :big)
-    "0x" <> Integer.to_string(integer_value, 16)
+    "0x" <> Base.encode16(binary)
   end
 
   @spec create_from_compliance_input_files(list(Path.t())) ::
@@ -373,6 +383,8 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
           with true <- checked do
             compliance_inputs =
               Enum.map(compliance_inputs_unchecked, &elem(&1, 1))
+
+            IO.inspect(compliance_inputs)
 
             compliance_proofs_unchecked =
               Enum.map(

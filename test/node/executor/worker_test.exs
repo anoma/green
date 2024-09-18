@@ -385,7 +385,137 @@ defmodule AnomaTest.Node.Executor.Worker do
     :ok = Router.call(router, {:unsubscribe_topic, topic, :local})
   end
 
-  test "worker generates and verifies cairo proofs", %{
+  test "worker generates and verifies cairo proofs (hardcoded)", %{
+    env: env,
+    router: router
+  } do
+    alias Anoma.ShieldedResource.ShieldedTransaction
+    alias Anoma.ShieldedResource.PartialTransaction
+    alias Anoma.ShieldedResource.ProofRecord
+
+    id = System.unique_integer([:positive])
+
+    storage = Engine.get_state(env.ordering).storage
+
+    {:ok, topic} = Router.new_topic(router)
+    :ok = Router.call(router, {:subscribe_topic, topic, :local})
+    Storage.ensure_new(storage)
+    Ordering.reset(env.ordering)
+
+    program_inputs = """
+    {
+      "input": {
+        "fld0": 7,
+        "fld1": 9,
+        "eph": true
+      },
+      "path": [
+        {
+          "fst": 1,
+          "snd": true
+        },
+        {
+          "fst": 2,
+          "snd": false
+        },
+        {
+          "fst": 3,
+          "snd": true
+        }
+      ]
+    }
+    """
+
+    program = File.read!("./test/data/cairo_program.json")
+
+    {:ok, program_proof} = ProofRecord.generate_proof(program, program_inputs)
+
+    _program_hash =
+      program_proof.public_inputs
+      |> :binary.bin_to_list()
+      |> Cairo.get_program_hash()
+      |> :binary.list_to_bin()
+      |> Base.encode16()
+
+    compliance_inputs = """
+    {
+    "input": {
+        "logic" : "0x049F24BE37D0457C24A4AE1C0D2A5C7E3EEDF8402B2B12DCE2CE3E7B6CB789DD",
+        "label" : "0x12",
+        "quantity" : "0x13",
+        "data" : "0x14",
+        "eph" : true,
+        "nonce" : "0x26",
+        "npk" : "0x7752582c54a42fe0fa35c40f07293bb7d8efe90e21d8d2c06a7db52d7d9b7a1",
+        "rseed" : "0x48"
+    },
+    "output": {
+        "logic" : "0x049F24BE37D0457C24A4AE1C0D2A5C7E3EEDF8402B2B12DCE2CE3E7B6CB789DD",
+        "label" : "0x12",
+        "quantity" : "0x13",
+        "data" : "0x812",
+        "eph" : true,
+        "nonce" : "0x104",
+        "npk" : "0x195",
+        "rseed" : "0x16"
+    },
+    "input_nf_key": "0x1",
+    "merkle_path": [{"fst": "0x33", "snd": true}, {"fst": "0x83", "snd": false}, {"fst": "0x73", "snd": false}, {"fst": "0x23", "snd": false}, {"fst": "0x33", "snd": false}, {"fst": "0x43", "snd": false}, {"fst": "0x53", "snd": false}, {"fst": "0x3", "snd": false}, {"fst": "0x36", "snd": false}, {"fst": "0x37", "snd": false}, {"fst": "0x118", "snd": false}, {"fst": "0x129", "snd": false}, {"fst": "0x12", "snd": true}, {"fst": "0x33", "snd": false}, {"fst": "0x43", "snd": false}, {"fst": "0x156", "snd": true}, {"fst": "0x63", "snd": false}, {"fst": "0x128", "snd": false}, {"fst": "0x32", "snd": false}, {"fst": "0x230", "snd": true}, {"fst": "0x3", "snd": false}, {"fst": "0x33", "snd": false}, {"fst": "0x223", "snd": false}, {"fst": "0x2032", "snd": true}, {"fst": "0x32", "snd": false}, {"fst": "0x323", "snd": false}, {"fst": "0x3223", "snd": false}, {"fst": "0x203", "snd": true}, {"fst": "0x31", "snd": false}, {"fst": "0x32", "snd": false}, {"fst": "0x22", "snd": false}, {"fst": "0x23", "snd": true}],
+    "rcv": "0x3",
+    "eph_root": "0x4"
+    }
+    """
+
+    {:ok, compliance_proof} =
+      ProofRecord.generate_compliance_proof(compliance_inputs)
+
+    # TODO: make up real logic proofs when building a client
+    input_resource_logic = program_proof
+    output_resource_logic = program_proof
+
+    ptx = %PartialTransaction{
+      logic_proofs: [input_resource_logic, output_resource_logic],
+      compliance_proofs: [compliance_proof]
+    }
+
+    # Generate the binding signature
+    # priv_keys are from rcvs in compliance_inputs
+    priv_keys = :binary.copy(<<0>>, 31) <> <<3>>
+
+    rm_tx_0 =
+      %ShieldedTransaction{
+        partial_transactions: [ptx],
+        delta: priv_keys
+      }
+
+    rm_tx = ShieldedTransaction.finalize(rm_tx_0)
+
+    # Mock root history: insert the current roots to the storage
+    rm_tx.roots
+    |> Enum.each(fn root ->
+      Storage.put(storage, ["rm", "commitment_root", root], true)
+    end)
+
+    rm_tx_noun = Noun.Nounable.to_noun(rm_tx)
+    rm_executor_tx = [[1 | rm_tx_noun], 0 | 0]
+
+    {:ok, spawn} =
+      Router.start_engine(
+        router,
+        Worker,
+        {id, {:cairo, rm_executor_tx}, env, topic, nil}
+      )
+
+    Ordering.new_order(env.ordering, [
+      Anoma.Transaction.new_with_order(0, id, spawn)
+    ])
+
+    Router.send_raw(spawn, {:write_ready, 0})
+    TestHelper.Worker.wait_for_worker(spawn, :ok)
+    :ok = Router.call(router, {:unsubscribe_topic, topic, :local})
+  end
+
+  test "worker generates and verifies cairo proofs (through API)", %{
     env: env,
     router: router
   } do
