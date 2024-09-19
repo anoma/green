@@ -1,23 +1,37 @@
-defmodule Glossary do
+defmodule GlossaryBuilder do
   @moduledoc """
-  I reference `Anoma.Glossary."transaction candidate"/0` blocks.
-  I reference [anoma](`Anoma.Glossary.transaction\ candidate/0`) blocks.
-
   I am the Glossary module. I provide a way to define and document terms throughout the codebase.
 
   I am useful to link back to the definition of a term, and to provide a consistent definition
   across the codebase in docstrings.
 
-  You can link back to Glossary items using the documentation syntax for links.
+  ## Usage
 
-  For example, to link back to the definition of `anoma`, defined in the module `Anoma.Glossary`,
-  you type `[anoma](`Anoma.Glossary.anoma/0`)` in your docstring. This will render as a link
-  as the word "anoma" and link to the definition of `anoma` in the `Anoma.Glossary` module.
+  You can link back to a term in the glossary using generated links.
+  A link is generated with the auto-link syntax.
+  The following example will link to the term `anoma` in the module `Anoma.Glossary`.
+
+  ``[anoma](`Anoma.Glossary.anoma/0`)``
+
+  > **Note** If the term is defined in the glossary using spaces, the spaces will be replaced with
+  underscores.
+
+  ### Public API
+
+  I have the following public functionality:
+
+  #### Macros
+
+  - `define/2`
   """
 
+  @spec __using__(any()) ::
+          {:import,
+           [{:context, GlossaryBuilder} | {:end_of_expression, [...]}, ...],
+           [GlossaryBuilder, ...]}
   @doc """
   I am the __using__ macro for the Glossary module.
-  I import the Glossary module and make the macros available.
+  I import the Glossary module and make my macros available.
   """
   defmacro __using__(_options) do
     quote do
@@ -26,52 +40,73 @@ defmodule Glossary do
   end
 
   @doc """
-  I am the `define/2` macro. I define a new entry in the glossary.
+  I am the `define/2` macro. I define a new entry in a glossary.
 
   ## Example
 
+  The following snippet defines the term `anoma`.
+
   ```
-  define "transaction_candidate" do
-    ~S(
+  define anoma do
+    \"\"\"
+    An intent-centric architecture decentralized counterparty discovery, solving,
+    information flow control, and atomic multi‑chain settlement.
+    \"\"\"
+  end
+  ```
+
+  Spaces in the names of definitions are automatically replaced with underscores.
+
+  ```
+  define transaction candidate do
+    \"\"\"
     A transaction candidate is `t:Noun.t/0` that evaluates to a valid or
     invalid `transaction` for a specified
     `t:Anoma.Node.Executor.Worker.backend/0`
-    )
+    \"\"\"
   end
   ```
 
-  I expand these definitions into functions that return the description of the definition.
-
-  ## Example
-
-  ```
-  @transaction_candidate ~S(
-  A transaction candidate is `t:Noun.t/0` that evaluates to a valid or
-  invalid `transaction` for a specified
-  `t:Anoma.Node.Executor.Worker.backend/0`
-  )
-  @spec transaction_candidate() :: String.t()
-  def transaction_candidate(), do: @transaction_candidate
-  ```
   """
-  @spec define(String.t(), do: String.t()) :: Macro.t()
+  @spec define(String.t() | atom(), do: String.t()) :: Macro.t()
   defmacro define(label, do: description) do
-    func_name = String.to_atom(label)
+    label = sanitize_label(label) |> String.to_atom()
 
     quote do
-      @unquote(func_name)(unquote(description))
+      @unquote(label)(unquote(description))
       @doc unquote(description)
-      @spec unquote(func_name)() :: String.t()
-      def unquote(func_name)(), do: unquote(description)
+      @spec unquote(label)() :: String.t()
+      def unquote(label)(), do: unquote(description)
     end
   end
 
-  # @transaction_candidate """
-  # A transaction candidate is `t:Noun.t/0` that evaluates to a valid or
-  # invalid `transaction` for a specified
-  # `t:Anoma.Node.Executor.Worker.backend/0`
-  # """
-  # @doc @transaction_candidate
-  # @spec transaction_candidate() :: String.t()
-  # def transaction_candidate(), do: @transaction_candidate
+  ############################################################
+  #                          Helpers                         #
+  ############################################################
+
+  # I turn the given label into a string.
+  # I accept atoms, strings, or ast nodes that represent a function call.
+  @type ast_node :: {atom(), any(), nil | [ast_node()]}
+  @spec sanitize_label(ast_node | String.t() | atom()) :: String.t()
+  defp sanitize_label({label, _, nil}) do
+    sanitize_label(label)
+  end
+
+  defp sanitize_label({label, _, labels}) do
+    [label | labels]
+    |> Enum.map(fn label -> sanitize_label(label) end)
+    |> Enum.join("_")
+  end
+
+  # atom
+  defp sanitize_label(label) when is_atom(label) do
+    label |> Atom.to_string() |> sanitize_label()
+  end
+
+  # string
+  defp sanitize_label(label) when is_binary(label) do
+    label
+    |> String.replace(~r/[^a-zA-Z0-9]/, "_")
+    |> String.trim()
+  end
 end
