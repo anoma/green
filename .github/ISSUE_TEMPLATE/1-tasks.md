@@ -19,4 +19,4 @@ supersedes:
 -
 ---
 
-<definition of done>
+This task can be considered done when the compliance circuit, with all its components, inputs, security assumptions and cryptographic functions have been described in detail 
