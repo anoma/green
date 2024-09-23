@@ -11,7 +11,8 @@ defmodule Anoma.Node.Supervisor do
 
   def init(_args) do
     children = [
-      {Anoma.Node.IntentPool, []}
+      {Anoma.Node.IntentPool, []},
+      {Anoma.Node.Solver, %{}}
     ]
 
     Supervisor.init(children, strategy: :one_for_all)
