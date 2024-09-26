@@ -5,6 +5,7 @@ defmodule Anoma.Node.Transaction.Backends do
   """
 
   alias Anoma.Node.Transaction.Ordering
+  alias Anoma.TransparentResource
 
   import Nock
   require Noun
@@ -74,6 +75,19 @@ defmodule Anoma.Node.Transaction.Backends do
       _e ->
         Ordering.write({id, []})
         complete_event(id, :error)
+    end
+  end
+
+  defp resource_tx(id, result) do
+    with {:ok, tx} <- TransparentResource.Resource.from_noun(result),
+         true <- TransparentResource.verify(tx) do
+      for action <- tx.actions do
+        cms = action.commitments
+        nlfs = action.nullifiers
+        Ordering.append({id, [{:nullifiers, nlfs}, {:commitments, cms}]})
+      end
+    else
+      _e -> :error
     end
   end
 
