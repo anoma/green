@@ -230,42 +230,29 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
   @spec generate_resource_logic_proofs(list(binary())) ::
           {:ok, list(ProofRecord.t())} | :error
   defp generate_resource_logic_proofs(jsons) do
-    resource_logics_unchecked =
-      Enum.map(jsons, & &1["logic"])
-      |> Enum.map(&File.read/1)
-
-    resource_logic_inputs_unchecked =
-      Enum.map(jsons, & &1["logic_input"])
-      |> Enum.map(&File.read/1)
-
-    checked_1 = Enum.all?(resource_logics_unchecked, &(elem(&1, 0) == :ok))
-
-    checked_2 =
-      Enum.all?(resource_logic_inputs_unchecked, &(elem(&1, 0) == :ok))
-
-    with true <- checked_1 && checked_2 do
-      resource_logics =
-        Enum.map(resource_logics_unchecked, &elem(&1, 1))
-
-      resource_logic_inputs =
-        Enum.map(resource_logic_inputs_unchecked, &elem(&1, 1))
-
-      proofs_unchecked =
-        Enum.zip_with(
-          resource_logics,
-          resource_logic_inputs,
-          &ProofRecord.generate_proof/2
-        )
-
-      checked = Enum.all?(proofs_unchecked, &(elem(&1, 0) == :ok))
-
-      with true <- checked do
-        {:ok, Enum.map(proofs_unchecked, &elem(&1, 1))}
-      else
-        false -> :error
-      end
+    with resource_logics_unchecked =
+           Enum.map(jsons, & &1["logic"])
+           |> Enum.map(&File.read/1),
+         resource_logic_inputs_unchecked =
+           Enum.map(jsons, & &1["logic_input"])
+           |> Enum.map(&File.read/1),
+         true <- Enum.all?(resource_logics_unchecked, &(elem(&1, 0) == :ok)),
+         true <-
+           Enum.all?(resource_logic_inputs_unchecked, &(elem(&1, 0) == :ok)),
+         resource_logics =
+           Enum.map(resource_logics_unchecked, &elem(&1, 1)),
+         resource_logic_inputs =
+           Enum.map(resource_logic_inputs_unchecked, &elem(&1, 1)),
+         proofs_unchecked =
+           Enum.zip_with(
+             resource_logics,
+             resource_logic_inputs,
+             &ProofRecord.generate_proof/2
+           ),
+         true <- Enum.all?(proofs_unchecked, &(elem(&1, 0) == :ok)) do
+      {:ok, Enum.map(proofs_unchecked, &elem(&1, 1))}
     else
-      false -> :error
+      _ -> :error
     end
   end
 
@@ -322,116 +309,83 @@ defmodule Anoma.ShieldedResource.ShieldedTransaction do
   @spec create_from_compliance_input_files(list(Path.t())) ::
           {:ok, ShieldedTransaction.t()} | :error
   def create_from_compliance_input_files(compliance_input_files) do
-    compliance_pre_inputs_content_unchecked =
-      Enum.map(compliance_input_files, &File.read/1)
+    with compliance_pre_inputs_content_unchecked =
+           Enum.map(compliance_input_files, &File.read/1),
+         true <-
+           Enum.all?(
+             compliance_pre_inputs_content_unchecked,
+             &(elem(&1, 0) == :ok)
+           ),
+         compliance_pre_inputs_unchecked =
+           Enum.map(compliance_pre_inputs_content_unchecked, &elem(&1, 1))
+           |> Enum.map(&Jason.decode(&1, objects: :ordered_objects)),
+         true <-
+           Enum.all?(compliance_pre_inputs_unchecked, &(elem(&1, 0) == :ok)),
+         compliance_pre_inputs =
+           Enum.map(compliance_pre_inputs_unchecked, &elem(&1, 1)),
+         input_resources =
+           Enum.map(compliance_pre_inputs, & &1["input"]),
+         output_resources =
+           Enum.map(compliance_pre_inputs, & &1["output"]),
+         {:ok, input_logic_proofs} <-
+           generate_resource_logic_proofs(input_resources),
+         {:ok, output_logic_proofs} <-
+           generate_resource_logic_proofs(output_resources),
+         input_logic_hashes =
+           Enum.map(input_logic_proofs, &hash_resource_logic/1),
+         output_logic_hashes =
+           Enum.map(output_logic_proofs, &hash_resource_logic/1),
+         updated_input_resources =
+           update_resource_jsons(input_resources, input_logic_hashes),
+         updated_output_resources =
+           update_resource_jsons(output_resources, output_logic_hashes),
+         compliance_inputs_unchecked =
+           Enum.zip_with(
+             compliance_pre_inputs,
+             updated_output_resources,
+             &put_in(&1["output"], &2)
+           )
+           |> Enum.zip_with(
+             updated_input_resources,
+             &put_in(&1["input"], &2)
+           )
+           |> Enum.map(&Jason.encode/1),
+         true <-
+           Enum.all?(compliance_inputs_unchecked, &(elem(&1, 0) == :ok)),
+         compliance_inputs =
+           Enum.map(compliance_inputs_unchecked, &elem(&1, 1)),
+         compliance_proofs_unchecked =
+           Enum.map(
+             compliance_inputs,
+             &ProofRecord.generate_compliance_proof/1
+           ),
+         true <-
+           Enum.all?(compliance_proofs_unchecked, &(elem(&1, 0) == :ok)),
+         compliance_proofs =
+           Enum.map(compliance_proofs_unchecked, &elem(&1, 1)) do
+      ptx = %PartialTransaction{
+        logic_proofs:
+          Enum.zip_with(
+            input_logic_proofs,
+            output_logic_proofs,
+            &[&1, &2]
+          )
+          |> Enum.concat(),
+        compliance_proofs: compliance_proofs
+      }
 
-    checked =
-      Enum.all?(
-        compliance_pre_inputs_content_unchecked,
-        &(elem(&1, 0) == :ok)
-      )
+      priv_keys =
+        Enum.map(compliance_pre_inputs, & &1["rcv"])
+        |> Enum.map(&hex_to_32_byte_binary/1)
+        |> Enum.reduce(&<>/2)
 
-    with true <- checked do
-      compliance_pre_inputs_unchecked =
-        Enum.map(compliance_pre_inputs_content_unchecked, &elem(&1, 1))
-        |> Enum.map(&Jason.decode(&1, objects: :ordered_objects))
-
-      checked =
-        Enum.all?(compliance_pre_inputs_unchecked, &(elem(&1, 0) == :ok))
-
-      with true <- checked do
-        compliance_pre_inputs =
-          Enum.map(compliance_pre_inputs_unchecked, &elem(&1, 1))
-
-        input_resources =
-          Enum.map(compliance_pre_inputs, & &1["input"])
-
-        output_resources =
-          Enum.map(compliance_pre_inputs, & &1["output"])
-
-        with {:ok, input_logic_proofs} <-
-               generate_resource_logic_proofs(input_resources),
-             {:ok, output_logic_proofs} <-
-               generate_resource_logic_proofs(output_resources) do
-          input_logic_hashes =
-            Enum.map(input_logic_proofs, &hash_resource_logic/1)
-
-          output_logic_hashes =
-            Enum.map(output_logic_proofs, &hash_resource_logic/1)
-
-          updated_input_resources =
-            update_resource_jsons(input_resources, input_logic_hashes)
-
-          updated_output_resources =
-            update_resource_jsons(output_resources, output_logic_hashes)
-
-          compliance_inputs_unchecked =
-            Enum.zip_with(
-              compliance_pre_inputs,
-              updated_output_resources,
-              &put_in(&1["output"], &2)
-            )
-            |> Enum.zip_with(
-              updated_input_resources,
-              &put_in(&1["input"], &2)
-            )
-            |> Enum.map(&Jason.encode/1)
-
-          checked =
-            Enum.all?(compliance_inputs_unchecked, &(elem(&1, 0) == :ok))
-
-          with true <- checked do
-            compliance_inputs =
-              Enum.map(compliance_inputs_unchecked, &elem(&1, 1))
-
-            compliance_proofs_unchecked =
-              Enum.map(
-                compliance_inputs,
-                &ProofRecord.generate_compliance_proof/1
-              )
-
-            checked =
-              Enum.all?(compliance_proofs_unchecked, &(elem(&1, 0) == :ok))
-
-            with true <- checked do
-              compliance_proofs =
-                Enum.map(compliance_proofs_unchecked, &elem(&1, 1))
-
-              ptx = %PartialTransaction{
-                logic_proofs:
-                  Enum.zip_with(
-                    input_logic_proofs,
-                    output_logic_proofs,
-                    &[&1, &2]
-                  )
-                  |> Enum.concat(),
-                compliance_proofs: compliance_proofs
-              }
-
-              priv_keys =
-                Enum.map(compliance_pre_inputs, & &1["rcv"])
-                |> Enum.map(&hex_to_32_byte_binary/1)
-                |> Enum.reduce(&<>/2)
-
-              {:ok,
-               %ShieldedTransaction{
-                 partial_transactions: [ptx],
-                 delta: priv_keys
-               }}
-            else
-              false -> :error
-            end
-          else
-            false -> :error
-          end
-        else
-          _ -> :error
-        end
-      else
-        false -> :error
-      end
+      {:ok,
+       %ShieldedTransaction{
+         partial_transactions: [ptx],
+         delta: priv_keys
+       }}
     else
-      false -> :error
+      _ -> :error
     end
   end
 end
