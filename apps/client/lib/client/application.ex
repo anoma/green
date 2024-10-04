@@ -11,7 +11,8 @@ defmodule Client.Application do
   def start(_type, _args) do
     children = [
       # {DynamicSupervisor, name: Client.Connections}
-      {GRPC.Server.Supervisor, endpoint: Client.Api.Endpoint, port: 50051, start_server: true}
+      {GRPC.Server.Supervisor,
+       endpoint: Client.Api.Endpoint, port: 50051, start_server: true}
       # {Client.Connection, [host: host, port: port, node_id: node_id]}
     ]
 

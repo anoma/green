@@ -49,6 +49,6 @@ defmodule Protobufs.NodeInfo do
     }
   end
 
-  field :sign, 1, type: :bytes
-  field :encrypt, 2, type: :bytes
+  field(:sign, 1, type: :bytes)
+  field(:encrypt, 2, type: :bytes)
 end

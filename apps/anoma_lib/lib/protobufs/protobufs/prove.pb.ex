@@ -1,4 +1,4 @@
-defmodule Protobufs.Indexer.UnrevealedCommits do
+defmodule Protobufs.Prove do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.13.0"
@@ -6,7 +6,7 @@ defmodule Protobufs.Indexer.UnrevealedCommits do
   def descriptor do
     # credo:disable-for-next-line
     %Google.Protobuf.DescriptorProto{
-      name: "UnrevealedCommits",
+      name: "Prove",
       field: [],
       nested_type: [
         %Google.Protobuf.DescriptorProto{
@@ -25,6 +25,20 @@ defmodule Protobufs.Indexer.UnrevealedCommits do
               json_name: "senderInfo",
               proto3_optional: nil,
               __unknown_fields__: []
+            },
+            %Google.Protobuf.FieldDescriptorProto{
+              name: "intent",
+              extendee: nil,
+              number: 2,
+              label: :LABEL_OPTIONAL,
+              type: :TYPE_STRING,
+              type_name: nil,
+              default_value: nil,
+              options: nil,
+              oneof_index: nil,
+              json_name: "intent",
+              proto3_optional: nil,
+              __unknown_fields__: []
             }
           ],
           nested_type: [],
@@ -41,16 +55,16 @@ defmodule Protobufs.Indexer.UnrevealedCommits do
           name: "Response",
           field: [
             %Google.Protobuf.FieldDescriptorProto{
-              name: "commits",
+              name: "result",
               extendee: nil,
               number: 1,
-              label: :LABEL_REPEATED,
+              label: :LABEL_OPTIONAL,
               type: :TYPE_STRING,
               type_name: nil,
               default_value: nil,
               options: nil,
               oneof_index: nil,
-              json_name: "commits",
+              json_name: "result",
               proto3_optional: nil,
               __unknown_fields__: []
             }

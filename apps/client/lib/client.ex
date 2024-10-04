@@ -29,7 +29,6 @@ defmodule Client do
 
         # connected, yay
         {:ok, node_id}
-
     end
   end
 

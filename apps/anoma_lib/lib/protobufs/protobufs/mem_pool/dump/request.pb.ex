@@ -7,7 +7,22 @@ defmodule Protobufs.MemPool.Dump.Request do
     # credo:disable-for-next-line
     %Google.Protobuf.DescriptorProto{
       name: "Request",
-      field: [],
+      field: [
+        %Google.Protobuf.FieldDescriptorProto{
+          name: "sender_info",
+          extendee: nil,
+          number: 1,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_MESSAGE,
+          type_name: ".Protobufs.NodeInfo",
+          default_value: nil,
+          options: nil,
+          oneof_index: nil,
+          json_name: "senderInfo",
+          proto3_optional: nil,
+          __unknown_fields__: []
+        }
+      ],
       nested_type: [],
       enum_type: [],
       extension_range: [],
@@ -19,4 +34,6 @@ defmodule Protobufs.MemPool.Dump.Request do
       __unknown_fields__: []
     }
   end
+
+  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
 end

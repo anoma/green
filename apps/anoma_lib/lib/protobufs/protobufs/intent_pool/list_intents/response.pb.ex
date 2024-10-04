@@ -35,5 +35,5 @@ defmodule Protobufs.IntentPool.ListIntents.Response do
     }
   end
 
-  field :intents, 1, repeated: true, type: :string
+  field(:intents, 1, repeated: true, type: :string)
 end

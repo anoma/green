@@ -1,4 +1,4 @@
-defmodule Protobufs.Announcement do
+defmodule Protobufs.Prove.Request do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.13.0"
@@ -6,10 +6,10 @@ defmodule Protobufs.Announcement do
   def descriptor do
     # credo:disable-for-next-line
     %Google.Protobuf.DescriptorProto{
-      name: "Announcement",
+      name: "Request",
       field: [
         %Google.Protobuf.FieldDescriptorProto{
-          name: "node_info",
+          name: "sender_info",
           extendee: nil,
           number: 1,
           label: :LABEL_OPTIONAL,
@@ -18,21 +18,21 @@ defmodule Protobufs.Announcement do
           default_value: nil,
           options: nil,
           oneof_index: nil,
-          json_name: "nodeInfo",
+          json_name: "senderInfo",
           proto3_optional: nil,
           __unknown_fields__: []
         },
         %Google.Protobuf.FieldDescriptorProto{
-          name: "engines",
+          name: "intent",
           extendee: nil,
           number: 2,
-          label: :LABEL_REPEATED,
+          label: :LABEL_OPTIONAL,
           type: :TYPE_STRING,
           type_name: nil,
           default_value: nil,
           options: nil,
           oneof_index: nil,
-          json_name: "engines",
+          json_name: "intent",
           proto3_optional: nil,
           __unknown_fields__: []
         }
@@ -49,6 +49,6 @@ defmodule Protobufs.Announcement do
     }
   end
 
-  field(:node_info, 1, type: Protobufs.NodeInfo, json_name: "nodeInfo")
-  field(:engines, 2, repeated: true, type: :string)
+  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
+  field(:intent, 2, type: :string)
 end

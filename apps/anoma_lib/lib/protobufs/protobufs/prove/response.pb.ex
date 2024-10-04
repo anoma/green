@@ -1,4 +1,4 @@
-defmodule Protobufs.Announcement do
+defmodule Protobufs.Prove.Response do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.13.0"
@@ -6,33 +6,19 @@ defmodule Protobufs.Announcement do
   def descriptor do
     # credo:disable-for-next-line
     %Google.Protobuf.DescriptorProto{
-      name: "Announcement",
+      name: "Response",
       field: [
         %Google.Protobuf.FieldDescriptorProto{
-          name: "node_info",
+          name: "result",
           extendee: nil,
           number: 1,
           label: :LABEL_OPTIONAL,
-          type: :TYPE_MESSAGE,
-          type_name: ".Protobufs.NodeInfo",
-          default_value: nil,
-          options: nil,
-          oneof_index: nil,
-          json_name: "nodeInfo",
-          proto3_optional: nil,
-          __unknown_fields__: []
-        },
-        %Google.Protobuf.FieldDescriptorProto{
-          name: "engines",
-          extendee: nil,
-          number: 2,
-          label: :LABEL_REPEATED,
           type: :TYPE_STRING,
           type_name: nil,
           default_value: nil,
           options: nil,
           oneof_index: nil,
-          json_name: "engines",
+          json_name: "result",
           proto3_optional: nil,
           __unknown_fields__: []
         }
@@ -49,6 +35,5 @@ defmodule Protobufs.Announcement do
     }
   end
 
-  field(:node_info, 1, type: Protobufs.NodeInfo, json_name: "nodeInfo")
-  field(:engines, 2, repeated: true, type: :string)
+  field(:result, 1, type: :string)
 end
