@@ -31,7 +31,7 @@ defmodule Anoma.Node.Supervisor do
 
     children = [
       {Anoma.Node.Transport.Supervisor, node_id: node_id},
-      {Anoma.Node.Transaction.Mempool, node_id: node_id},
+      {Anoma.Node.Transaction.Supervisor, node_id: node_id},
       {Anoma.Node.Utility.Supervisor, node_id: node_id}
     ]
 

@@ -156,7 +156,6 @@ defmodule Anoma.Node.Transaction.Mempool do
         },
         state
       ) do
-        IO.inspect state, label: "tate"
     new_map =
       state.transactions
       |> Map.update!(id, fn tx -> Map.put(tx, :vm_result, res) end)

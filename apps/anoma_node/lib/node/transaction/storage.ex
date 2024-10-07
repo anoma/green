@@ -98,7 +98,10 @@ defmodule Anoma.Node.Transaction.Storage do
 
       {:reply, result, state}
     else
-      block_spawn(height, fn -> blocking_read(state.node_id, height, key, from) end)
+      block_spawn(height, fn ->
+        blocking_read(state.node_id, height, key, from)
+      end)
+
       {:noreply, state}
     end
   end

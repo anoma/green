@@ -18,7 +18,6 @@ defmodule Anoma.Node.Utility.Consensus do
   def start_link(args) do
     args = Keyword.validate!(args, [:interval, :node_id])
     name = Registry.name(args[:node_id], __MODULE__)
-    IO.inspect name, label: "consensus name"
     GenServer.start_link(__MODULE__, args, name: name)
   end
 
@@ -54,6 +53,10 @@ defmodule Anoma.Node.Utility.Consensus do
 
   def handle_info(:execute, state) do
     execute(state.node_id, state.interval)
+    {:noreply, state}
+  end
+
+  def handle_info(_, state) do
     {:noreply, state}
   end
 

@@ -38,15 +38,17 @@ defmodule Anoma.Node.Transaction.Backends do
   end
 
   def execute(node_id, {{:debug_read_term, pid}, tx}, id) do
-    execute_candidate(node_id, tx, id, fn x, y -> send_value(node_id, x, y, pid) end)
+    execute_candidate(node_id, tx, id, fn x, y ->
+      send_value(node_id, x, y, pid)
+    end)
   end
 
   def execute(node_id, {:debug_term_storage, tx}, id) do
-    execute_candidate(node_id, tx, id, &(store_value(node_id, &1, &2)))
+    execute_candidate(node_id, tx, id, &store_value(node_id, &1, &2))
   end
 
   def execute(node_id, {:debug_bloblike, tx}, id) do
-    execute_candidate(node_id, tx, id,&(store_value(node_id, &1, &2)))
+    execute_candidate(node_id, tx, id, &store_value(node_id, &1, &2))
   end
 
   defp gate_call(tx_code, env, id) do
@@ -98,7 +100,10 @@ defmodule Anoma.Node.Transaction.Backends do
              [_ | _] -> true
              _ -> false
            end) do
-      Ordering.write(node_id, {id, list |> Enum.map(fn [k | v] -> {k, v} end)})
+      Ordering.write(
+        node_id,
+        {id, list |> Enum.map(fn [k | v] -> {k, v} end)}
+      )
 
       complete_event(id, {:ok, list})
     else

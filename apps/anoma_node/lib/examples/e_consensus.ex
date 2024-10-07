@@ -3,6 +3,7 @@ defmodule Anoma.Node.Examples.EConsensus do
   alias Anoma.Node.Transaction.Mempool
   alias Anoma.Node.Examples.{ETransaction, ELogging}
   alias Anoma.Node.Registry
+  alias Anoma.Crypto.Id
 
   require EventBroker.Event
 
@@ -29,26 +30,25 @@ defmodule Anoma.Node.Examples.EConsensus do
     restart_consensus(node_id)
   end
 
-  def startup_execution(node_id \\ Examples.ECrypto.londo()) do
+  def startup_execution(node_id \\ Id.new_keypair()) do
     EventBroker.subscribe_me([])
     restart_consensus_env(node_id)
 
-    # todo: fix this test
-    # assert_receive(
-    #   %EventBroker.Event{
-    #     body: %Mempool.BlockEvent{
-    #       order: []
-    #     }
-    #   },
-    #   5000
-    # )
+    assert_receive(
+      %EventBroker.Event{
+        body: %Mempool.BlockEvent{
+          order: []
+        }
+      },
+      5000
+    )
 
     EventBroker.unsubscribe_me([])
 
     stop_consensus(node_id)
   end
 
-  def execution_continues(node_id \\ Examples.ECrypto.londo()) do
+  def execution_continues(node_id \\ Id.new_keypair()) do
     EventBroker.subscribe_me([])
     restart_consensus_env(node_id)
 

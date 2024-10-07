@@ -491,7 +491,7 @@ defmodule Anoma.Node.Examples.ETransaction do
     restart_tx_module(node_id)
     Mempool.tx(node_id, {{:debug_read_term, self()}, zero(key)}, "id 1")
     :mnesia.subscribe({:table, Storage.Blocks, :simple})
-      Mempool.execute(node_id, ["id 1"])
+    Mempool.execute(node_id, ["id 1"])
 
     assert_receive(
       {:mnesia_table_event, {:write, {Storage.Blocks, 0, _}, _}},

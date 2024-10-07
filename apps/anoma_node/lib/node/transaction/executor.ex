@@ -52,7 +52,6 @@ defmodule Anoma.Node.Transaction.Executor do
   end
 
   def handle_cast({:execute, consensus}, state) do
-    IO.puts "execute "
     Ordering.order(state.node_id, consensus)
 
     res_list =
