@@ -7,6 +7,9 @@ defmodule Anoma.Node.Transaction.Mempool do
   alias Anoma.Node.Transaction.{Storage, Executor, Backends}
   alias Anoma.Node.Registry
   alias Anoma.Crypto.Id
+  alias Executor.ExecutionEvent
+  alias EventBroker.Event
+  alias Backends.ResultEvent
 
   require EventBroker.Event
 
@@ -83,6 +86,11 @@ defmodule Anoma.Node.Transaction.Mempool do
     {:ok, %__MODULE__{round: round, node_id: args[:node_id]}}
   end
 
+  def terminate(reason, _state) do
+    IO.inspect(reason)
+    IO.puts("Mempool terminated")
+  end
+
   ############################################################
   #                      Public RPC API                      #
   ############################################################
@@ -147,30 +155,21 @@ defmodule Anoma.Node.Transaction.Mempool do
     {:noreply, state}
   end
 
-  def handle_info(
-        %EventBroker.Event{
-          body: %Backends.ResultEvent{
-            tx_id: id,
-            vm_result: res
-          }
-        },
-        state
-      ) do
+  def handle_info(%Event{body: %ResultEvent{}} = e, state) do
+    id = e.body.tx_id
+    res = e.body.vm_result
+
     new_map =
       state.transactions
-      |> Map.update!(id, fn tx -> Map.put(tx, :vm_result, res) end)
+      |> Map.update!(id, fn tx ->
+        Map.put(tx, :vm_result, res)
+      end)
 
     {:noreply, %__MODULE__{state | transactions: new_map}}
   end
 
-  def handle_info(
-        %EventBroker.Event{
-          body: %Executor.ExecutionEvent{
-            result: execution_list
-          }
-        },
-        state
-      ) do
+  def handle_info(%Event{body: %ExecutionEvent{result: _}} = e, state) do
+    execution_list = e.body.result
     round = state.round
 
     {writes, map} = process_execution(state, execution_list)
@@ -185,6 +184,10 @@ defmodule Anoma.Node.Transaction.Mempool do
   def handle_info(_, state) do
     {:noreply, state}
   end
+
+  ############################################################
+  #                           Helpers                        #
+  ############################################################
 
   def block_event(id_list, round) do
     block_event =
