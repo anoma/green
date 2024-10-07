@@ -7,12 +7,14 @@ defmodule Anoma.Node.Transaction.Storage do
   use TypedStruct
   require EventBroker.Event
 
-  alias __MODULE__
+  alias Anoma.Node.Registry
+  alias Anoma.Crypto.Id
 
   @type bare_key() :: list(String.t())
   @type qualified_key() :: {integer(), bare_key()}
 
   typedstruct enforce: true do
+    field(:node_id, Id.t())
     field(:uncommitted, %{qualified_key() => term()}, default: %{})
     # the most recent height written.
     # starts at 0 because nothing has been written.
@@ -29,24 +31,27 @@ defmodule Anoma.Node.Transaction.Storage do
   end
 
   def start_link(args \\ []) do
-    GenServer.start_link(__MODULE__, args, name: __MODULE__)
+    name = Registry.name(args[:node_id], __MODULE__)
+    GenServer.start_link(__MODULE__, args, name: name)
   end
 
   def init(args) do
     keylist =
       args
-      |> Keyword.validate!(
+      |> Keyword.validate!([
+        :node_id,
         uncommitted_height: 0,
         values_table: __MODULE__.Values,
         updates_table: __MODULE__.Updates,
         blocks_table: __MODULE__.Blocks
-      )
+      ])
 
     :mnesia.create_table(keylist[:values_table], attributes: [:key, :value])
     :mnesia.create_table(keylist[:updates_table], attributes: [:key, :value])
     :mnesia.create_table(keylist[:blocks_table], attributes: [:round, :block])
 
-    {:ok, %Storage{uncommitted_height: keylist[:uncommitted_height]}}
+    state = struct(__MODULE__, Enum.into(args, %{}))
+    {:ok, state}
   end
 
   def handle_call({:commit, round, writes}, _from, state) do
@@ -73,7 +78,12 @@ defmodule Anoma.Node.Transaction.Storage do
     end
 
     :mnesia.transaction(mnesia_tx)
-    {:reply, :ok, %__MODULE__{uncommitted_height: state.uncommitted_height}}
+
+    {:reply, :ok,
+     %__MODULE__{
+       node_id: state.node_id,
+       uncommitted_height: state.uncommitted_height
+     }}
   end
 
   def handle_call({:read, {0, _key}}, _from, state) do
@@ -88,7 +98,7 @@ defmodule Anoma.Node.Transaction.Storage do
 
       {:reply, result, state}
     else
-      block_spawn(height, fn -> blocking_read(height, key, from) end)
+      block_spawn(height, fn -> blocking_read(state.node_id, height, key, from) end)
       {:noreply, state}
     end
   end
@@ -97,7 +107,7 @@ defmodule Anoma.Node.Transaction.Storage do
       when write_or_append in [:write, :append] do
     unless height == state.uncommitted_height + 1 do
       block_spawn(height - 1, fn ->
-        blocking_write(height, kvlist, from)
+        blocking_write(state.node_id, height, kvlist, from)
       end)
 
       {:noreply, state}
@@ -130,23 +140,27 @@ defmodule Anoma.Node.Transaction.Storage do
     {:noreply, state}
   end
 
-  def read({height, key}) do
-    GenServer.call(__MODULE__, {:read, {height, key}}, :infinity)
+  def read(node_id, {height, key}) do
+    pid = Registry.whereis(node_id, __MODULE__)
+    GenServer.call(pid, {:read, {height, key}}, :infinity)
   end
 
-  def write({height, kvlist}) do
-    GenServer.call(__MODULE__, {:write, {height, kvlist}}, :infinity)
+  def write(node_id, {height, kvlist}) do
+    pid = Registry.whereis(node_id, __MODULE__)
+    GenServer.call(pid, {:write, {height, kvlist}}, :infinity)
   end
 
-  def append({height, kvlist}) do
-    GenServer.call(__MODULE__, {:append, {height, kvlist}}, :infinity)
+  def append(node_id, {height, kvlist}) do
+    pid = Registry.whereis(node_id, __MODULE__)
+    GenServer.call(pid, {:append, {height, kvlist}}, :infinity)
   end
 
-  def commit(block_round, writes) do
-    GenServer.call(__MODULE__, {:commit, block_round, writes})
+  def commit(node_id, block_round, writes) do
+    pid = Registry.whereis(node_id, __MODULE__)
+    GenServer.call(pid, {:commit, block_round, writes})
   end
 
-  defp blocking_read(height, key, from) do
+  defp blocking_read(node_id, height, key, from) do
     receive do
       # if the key we care about was written at exactly the height we
       # care about, then we already have the value for free
@@ -156,7 +170,7 @@ defmodule Anoma.Node.Transaction.Storage do
         case Enum.find(writes, fn {keywrite, _value} -> key == keywrite end) do
           # try reading in history instead
           nil ->
-            GenServer.reply(from, read({height, key}))
+            GenServer.reply(from, read(node_id, {height, key}))
 
           # return value
           {_key, value} ->
@@ -290,14 +304,14 @@ defmodule Anoma.Node.Transaction.Storage do
     end
   end
 
-  def blocking_write(height, kvlist, from) do
+  def blocking_write(node_id, height, kvlist, from) do
     awaited_height = height - 1
 
     receive do
       %EventBroker.Event{
         body: %__MODULE__.WriteEvent{height: ^awaited_height}
       } ->
-        GenServer.reply(from, write({height, kvlist}))
+        GenServer.reply(from, write(node_id, {height, kvlist}))
     end
 
     EventBroker.unsubscribe_me([
