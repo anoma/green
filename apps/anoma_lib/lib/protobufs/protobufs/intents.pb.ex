@@ -1,7 +1,9 @@
 defmodule Protobufs.Intents.Service do
   @moduledoc false
 
-  use GRPC.Service, name: "Protobufs.Intents", protoc_gen_elixir_version: "0.13.0"
+  use GRPC.Service,
+    name: "Protobufs.Intents",
+    protoc_gen_elixir_version: "0.13.0"
 
   def descriptor do
     # credo:disable-for-next-line
@@ -104,23 +106,37 @@ defmodule Protobufs.Intents.Service do
     }
   end
 
-  rpc :ListIntents,
-      Protobufs.IntentPool.ListIntents.Request,
-      Protobufs.IntentPool.ListIntents.Response
+  rpc(
+    :ListIntents,
+    Protobufs.IntentPool.ListIntents.Request,
+    Protobufs.IntentPool.ListIntents.Response
+  )
 
-  rpc :AddIntent, Protobufs.IntentPool.AddIntent.Request, Protobufs.IntentPool.AddIntent.Response
+  rpc(
+    :AddIntent,
+    Protobufs.IntentPool.AddIntent.Request,
+    Protobufs.IntentPool.AddIntent.Response
+  )
 
-  rpc :ListNullifiers, Protobufs.Indexer.Nullifiers.Request, Protobufs.Indexer.Nullifiers.Response
+  rpc(
+    :ListNullifiers,
+    Protobufs.Indexer.Nullifiers.Request,
+    Protobufs.Indexer.Nullifiers.Response
+  )
 
-  rpc :ListUnrevealedCommits,
-      Protobufs.Indexer.UnrevealedCommits.Request,
-      Protobufs.Indexer.UnrevealedCommits.Response
+  rpc(
+    :ListUnrevealedCommits,
+    Protobufs.Indexer.UnrevealedCommits.Request,
+    Protobufs.Indexer.UnrevealedCommits.Response
+  )
 
-  rpc :ListUnspentResources,
-      Protobufs.Indexer.UnspentResources.Request,
-      Protobufs.Indexer.UnspentResources.Response
+  rpc(
+    :ListUnspentResources,
+    Protobufs.Indexer.UnspentResources.Request,
+    Protobufs.Indexer.UnspentResources.Response
+  )
 
-  rpc :Prove, Protobufs.Prove.Request, Protobufs.Prove.Response
+  rpc(:Prove, Protobufs.Prove.Request, Protobufs.Prove.Response)
 end
 
 defmodule Protobufs.Intents.Stub do

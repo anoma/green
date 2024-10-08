@@ -10,10 +10,9 @@ defmodule Client.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # {DynamicSupervisor, name: Client.Connections}
       {GRPC.Server.Supervisor,
-       endpoint: Client.Api.Endpoint, port: 50051, start_server: true}
-      # {Client.Connection, [host: host, port: port, node_id: node_id]}
+       endpoint: Client.Api.Endpoint, port: 50051, start_server: true},
+      {Client.GRPCProxy, [node_port: 1235, node_host: "localhost"]}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

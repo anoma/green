@@ -35,5 +35,5 @@ defmodule Protobufs.Indexer.Nullifiers.Request do
     }
   end
 
-  field :sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo"
+  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
 end

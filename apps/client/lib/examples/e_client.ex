@@ -3,8 +3,6 @@ defmodule Client.Examples.EClient do
   alias Anoma.Node.Examples.ETransport.ETcp
   alias Anoma.Crypto.Id
 
-  use Example
-
   @doc """
   I setup a basic node that is used to interact with.
 

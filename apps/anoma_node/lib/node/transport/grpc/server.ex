@@ -23,7 +23,9 @@ defmodule Anoma.Node.Transport.GRPC.Server do
 
     intents =
       IntentPool.intents(request.sender_info)
-      |> Enum.into([])
+      |> Enum.map(fn intent ->
+        "intent: #{intent.value}"
+      end)
 
     %ListIntents.Response{intents: intents}
   end

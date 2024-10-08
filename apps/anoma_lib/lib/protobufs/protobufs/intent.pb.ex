@@ -35,5 +35,5 @@ defmodule Protobufs.Intent do
     }
   end
 
-  field :value, 1, type: :int32
+  field(:value, 1, type: :int32)
 end

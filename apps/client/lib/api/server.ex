@@ -9,19 +9,27 @@ defmodule Client.Api.Server do
   alias Protobufs.Intents
   alias GRPC.Server.Stream
 
+  require Logger
+
   use GRPC.Server, service: Intents.Service
 
   @spec list_intents(ListIntents.Request.t(), Stream.t()) ::
           ListIntents.Response.t()
   def list_intents(request, _stream) do
-    IO.inspect(request, label: "request")
-    %ListIntents.Response{intents: ["intent1", "intent2"]}
+    Logger.debug("GRPC #{inspect(__ENV__.function)}: #{inspect(request)}")
+    {:ok, intents} = Client.GRPCProxy.list_intents(request.sender_info)
+    intents
   end
 
   @spec add_intent(AddIntent.Request.t(), Stream.t()) ::
           AddIntent.Response.t()
   def add_intent(request, _stream) do
-    %AddIntent.Response{result: "intent added: #{request.intent}"}
+    Logger.debug("GRPC #{inspect(__ENV__.function)}: #{inspect(request)}")
+
+    {:ok, response} =
+      Client.GRPCProxy.add_intent(request.sender_info, request.intent)
+
+    response
   end
 
   @spec list_nullifiers(Nullifiers.Request.t(), Stream.t()) ::

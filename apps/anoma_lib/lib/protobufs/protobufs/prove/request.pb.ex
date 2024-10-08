@@ -49,6 +49,6 @@ defmodule Protobufs.Prove.Request do
     }
   end
 
-  field :sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo"
-  field :intent, 2, type: :string
+  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
+  field(:intent, 2, type: :string)
 end
