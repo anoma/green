@@ -13,6 +13,15 @@ defmodule Anoma.Node.Registry do
     field(:label, atom(), default: nil)
   end
 
+  defimpl Inspect, for: Address do
+    def inspect(address, _opts) do
+      addr = :erlang.phash2(address.node_id)
+      engine = address.engine
+      label = address.label
+      "#{engine}:#{addr}#{if label, do: ":#{label}", else: ""}"
+    end
+  end
+
   ############################################################
   #                      Public API                          #
   ############################################################
@@ -41,7 +50,7 @@ defmodule Anoma.Node.Registry do
           {:via, Registry, {atom(), Address.t()}}
   def name(node_id, engine, label \\ nil) do
     address = %Address{node_id: node_id, engine: engine, label: label}
-    {:via, Registry, {__MODULE__, address}}
+    {:via, Registry, {__MODULE__, address, inspect(address)}}
   end
 
   @doc """

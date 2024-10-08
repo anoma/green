@@ -1,10 +1,26 @@
 defmodule Client.Examples.EClient do
+  alias Anoma.Node.Examples.ENode
+  alias Anoma.Node.Examples.ETransport.ETcp
+
+  use Example
+
+  @doc """
+  I setup a basic node that is used to interact with.
+
+  Any other running ENode works as well.
+  """
+  @spec setup_node(Id.t()) :: ENode.t()
+  def setup_node(node_id \\ Examples.ECrypto.londo()) do
+    node = ENode.start_node(node_id)
+    ETcp.create_tcp_listener(node)
+  end
+
   @doc """
   I list the intents over grpc on the client.
   """
-  def list_intents() do
+  def list_intents(_enode) do
     alias Protobufs.IntentPool.ListIntents.Request
-    alias Protobufs.IntentPool.ListIntents.Response
+    # alias Protobufs.IntentPool.ListIntents.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -16,7 +32,7 @@ defmodule Client.Examples.EClient do
     }
 
     request = %Request{sender_info: node_info}
-    {:ok, reply} = channel |> Protobufs.Intents.Stub.list_intents(request)
+    {:ok, _reply} = channel |> Protobufs.Intents.Stub.list_intents(request)
   end
 
   @doc """
@@ -24,7 +40,7 @@ defmodule Client.Examples.EClient do
   """
   def add_intent() do
     alias Protobufs.IntentPool.AddIntent.Request
-    alias Protobufs.IntentPool.AddIntent.Response
+    # alias Protobufs.IntentPool.AddIntent.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -41,7 +57,7 @@ defmodule Client.Examples.EClient do
         "this is my intent. there are many like it, but this one is mine."
     }
 
-    {:ok, reply} = channel |> Protobufs.Intents.Stub.add_intent(request)
+    {:ok, _reply} = channel |> Protobufs.Intents.Stub.add_intent(request)
   end
 
   @doc """
@@ -49,7 +65,7 @@ defmodule Client.Examples.EClient do
   """
   def list_nullifiers() do
     alias Protobufs.Indexer.Nullifiers.Request
-    alias Protobufs.Indexer.Nullifiers.Response
+    # alias Protobufs.Indexer.Nullifiers.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -62,7 +78,7 @@ defmodule Client.Examples.EClient do
 
     request = %Request{sender_info: node_info}
 
-    {:ok, reply} = channel |> Protobufs.Intents.Stub.list_nullifiers(request)
+    {:ok, _reply} = channel |> Protobufs.Intents.Stub.list_nullifiers(request)
   end
 
   @doc """
@@ -70,7 +86,7 @@ defmodule Client.Examples.EClient do
   """
   def list_unrevealed_commits() do
     alias Protobufs.Indexer.UnrevealedCommits.Request
-    alias Protobufs.Indexer.UnrevealedCommits.Response
+    # alias Protobufs.Indexer.UnrevealedCommits.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -83,7 +99,7 @@ defmodule Client.Examples.EClient do
 
     request = %Request{sender_info: node_info}
 
-    {:ok, reply} =
+    {:ok, _reply} =
       channel |> Protobufs.Intents.Stub.list_unrevealed_commits(request)
   end
 
@@ -92,7 +108,7 @@ defmodule Client.Examples.EClient do
   """
   def list_unspent_resources() do
     alias Protobufs.Indexer.UnspentResources.Request
-    alias Protobufs.Indexer.UnspentResources.Response
+    # alias Protobufs.Indexer.UnspentResources.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -105,7 +121,7 @@ defmodule Client.Examples.EClient do
 
     request = %Request{sender_info: node_info}
 
-    {:ok, reply} =
+    {:ok, _reply} =
       channel |> Protobufs.Intents.Stub.list_unspent_resources(request)
   end
 
@@ -114,7 +130,7 @@ defmodule Client.Examples.EClient do
   """
   def prove_something() do
     alias Protobufs.Prove.Request
-    alias Protobufs.Prove.Response
+    # alias Protobufs.Prove.Response
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
@@ -127,7 +143,7 @@ defmodule Client.Examples.EClient do
 
     request = %Request{sender_info: node_info, intent: "prove this, please"}
 
-    {:ok, reply} =
+    {:ok, _reply} =
       channel |> Protobufs.Intents.Stub.prove(request)
   end
 end

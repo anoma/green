@@ -1,4 +1,4 @@
-defmodule Client.Api.Server do
+defmodule Anoma.Node.Transport.GRPC.Server do
   alias Protobufs.IntentPool.ListIntents
   alias Protobufs.IntentPool.AddIntent
   alias Protobufs.Indexer.Nullifiers
@@ -11,10 +11,14 @@ defmodule Client.Api.Server do
 
   use GRPC.Server, service: Intents.Service
 
+  require Logger
   @spec list_intents(ListIntents.Request.t(), Stream.t()) ::
           ListIntents.Response.t()
   def list_intents(request, _stream) do
-    IO.inspect(request, label: "request")
+    Logger.debug "GRPC #{inspect __ENV__.function} request: #{inspect request}"
+
+    node_id = request.sender_info
+
     %ListIntents.Response{intents: ["intent1", "intent2"]}
   end
 

@@ -15,6 +15,7 @@
   {:optimus, "~> 0.2"},
   {:plug_crypto, "~> 2.0"},
   {:protobuf, "~> 0.11.0"},
+  {:protobuf_generate, "~> 0.1.0"},
   {:qex, ">= 0.5.1"},
   {:recon, "~> 2.5.4"},
   {:rexbug, ">= 2.0.0-rc1"},

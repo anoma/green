@@ -35,5 +35,5 @@ defmodule Protobufs.Indexer.Nullifiers.Response do
     }
   end
 
-  field(:nullifiers, 1, repeated: true, type: :string)
+  field :nullifiers, 1, repeated: true, type: :string
 end
