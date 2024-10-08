@@ -27,8 +27,8 @@ defmodule Protobufs.IntentPool.AddIntent.Request do
           extendee: nil,
           number: 2,
           label: :LABEL_OPTIONAL,
-          type: :TYPE_STRING,
-          type_name: nil,
+          type: :TYPE_MESSAGE,
+          type_name: ".Protobufs.Intent",
           default_value: nil,
           options: nil,
           oneof_index: nil,
@@ -49,6 +49,6 @@ defmodule Protobufs.IntentPool.AddIntent.Request do
     }
   end
 
-  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
-  field(:intent, 2, type: :string)
+  field :sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo"
+  field :intent, 2, type: Protobufs.Intent
 end

@@ -49,6 +49,6 @@ defmodule Protobufs.Announcement do
     }
   end
 
-  field(:node_info, 1, type: Protobufs.NodeInfo, json_name: "nodeInfo")
-  field(:engines, 2, repeated: true, type: :string)
+  field :node_info, 1, type: Protobufs.NodeInfo, json_name: "nodeInfo"
+  field :engines, 2, repeated: true, type: :string
 end

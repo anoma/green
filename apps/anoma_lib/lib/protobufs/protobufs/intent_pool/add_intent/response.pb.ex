@@ -35,5 +35,5 @@ defmodule Protobufs.IntentPool.AddIntent.Response do
     }
   end
 
-  field(:result, 1, type: :string)
+  field :result, 1, type: :string
 end

@@ -1,13 +1,14 @@
 defmodule Anoma.Node.Transport.GRPC.Server do
-  alias Protobufs.IntentPool.ListIntents
-  alias Protobufs.IntentPool.AddIntent
+  alias Anoma.Node.Transaction.IntentPool
+  alias Anoma.RM.DumbIntent
+  alias GRPC.Server.Stream
   alias Protobufs.Indexer.Nullifiers
   alias Protobufs.Indexer.UnrevealedCommits
   alias Protobufs.Indexer.UnspentResources
-  # alias Protobufs.MemPool.Dump
-  alias Protobufs.Prove
+  alias Protobufs.IntentPool.AddIntent
+  alias Protobufs.IntentPool.ListIntents
   alias Protobufs.Intents
-  alias GRPC.Server.Stream
+  alias Protobufs.Prove
 
   use GRPC.Server, service: Intents.Service
 
@@ -20,15 +21,25 @@ defmodule Anoma.Node.Transport.GRPC.Server do
       "GRPC #{inspect(__ENV__.function)} request: #{inspect(request)}"
     )
 
-    _node_id = request.sender_info
+    intents =
+      IntentPool.intents(request.sender_info)
+      |> Enum.into([])
 
-    %ListIntents.Response{intents: ["intent1", "intent2"]}
+    %ListIntents.Response{intents: intents}
   end
 
   @spec add_intent(AddIntent.Request.t(), Stream.t()) ::
           AddIntent.Response.t()
   def add_intent(request, _stream) do
-    %AddIntent.Response{result: "intent added: #{request.intent}"}
+    Logger.debug(
+      "GRPC #{inspect(__ENV__.function)} request: #{inspect(request)}"
+    )
+
+    # add the intent to the intent pool
+    intent = %DumbIntent{value: request.intent.value}
+    IntentPool.new_intent(request.sender_info, intent)
+
+    %AddIntent.Response{result: "intent added: #{inspect(intent)}"}
   end
 
   @spec list_nullifiers(Nullifiers.Request.t(), Stream.t()) ::

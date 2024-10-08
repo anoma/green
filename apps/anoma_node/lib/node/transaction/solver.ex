@@ -18,6 +18,7 @@ defmodule Anoma.Node.Transaction.Solver do
   alias EventBroker.Event
   alias EventBroker.Filters
   alias Anoma.Node.Registry
+  alias Anoma.Crypto.Id
 
   require Logger
 

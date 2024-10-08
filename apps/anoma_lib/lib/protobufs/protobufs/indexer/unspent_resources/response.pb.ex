@@ -35,9 +35,5 @@ defmodule Protobufs.Indexer.UnspentResources.Response do
     }
   end
 
-  field(:unspent_resources, 1,
-    repeated: true,
-    type: :string,
-    json_name: "unspentResources"
-  )
+  field :unspent_resources, 1, repeated: true, type: :string, json_name: "unspentResources"
 end

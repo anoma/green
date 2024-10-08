@@ -1,4 +1,4 @@
-defmodule Protobufs.Indexer.Nullifiers.Response do
+defmodule Protobufs.Intent do
   @moduledoc false
 
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.13.0"
@@ -6,19 +6,19 @@ defmodule Protobufs.Indexer.Nullifiers.Response do
   def descriptor do
     # credo:disable-for-next-line
     %Google.Protobuf.DescriptorProto{
-      name: "Response",
+      name: "Intent",
       field: [
         %Google.Protobuf.FieldDescriptorProto{
-          name: "nullifiers",
+          name: "value",
           extendee: nil,
           number: 1,
-          label: :LABEL_REPEATED,
-          type: :TYPE_STRING,
+          label: :LABEL_OPTIONAL,
+          type: :TYPE_INT32,
           type_name: nil,
           default_value: nil,
           options: nil,
           oneof_index: nil,
-          json_name: "nullifiers",
+          json_name: "value",
           proto3_optional: nil,
           __unknown_fields__: []
         }
@@ -35,5 +35,5 @@ defmodule Protobufs.Indexer.Nullifiers.Response do
     }
   end
 
-  field :nullifiers, 1, repeated: true, type: :string
+  field :value, 1, type: :int32
 end

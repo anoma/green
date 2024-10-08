@@ -36,6 +36,9 @@ message Prove {
 }
 // ----------------- Intent Pool -----------------
 
+message Intent {
+  int32 value = 1;
+}
 /*
 Intent pool requests
 */
@@ -43,7 +46,7 @@ message IntentPool {
   message AddIntent {
     message Request {
       NodeInfo sender_info = 1;
-      string intent = 2;
+      Intent intent = 2;
     }
     message Response { string result = 1; }
   }

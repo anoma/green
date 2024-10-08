@@ -35,5 +35,5 @@ defmodule Protobufs.MemPool.Dump.Response do
     }
   end
 
-  field(:dumps, 1, repeated: true, type: :string)
+  field :dumps, 1, repeated: true, type: :string
 end

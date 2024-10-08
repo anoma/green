@@ -35,5 +35,5 @@ defmodule Protobufs.Indexer.UnrevealedCommits.Response do
     }
   end
 
-  field(:commits, 1, repeated: true, type: :string)
+  field :commits, 1, repeated: true, type: :string
 end
