@@ -6,8 +6,8 @@ defmodule Examples.Solver do
   require ExUnit.Assertions
   import ExUnit.Assertions
 
-  alias Anoma.Node.IntentPool
-  alias Anoma.Node.Solver
+  alias Anoma.Node.Transaction.IntentPool
+  alias Anoma.Node.Transaction.Solver
   alias Anoma.RM.DumbIntent
 
   ############################################################

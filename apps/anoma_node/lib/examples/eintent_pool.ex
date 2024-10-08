@@ -6,9 +6,7 @@ defmodule Examples.IntentPool do
   require ExUnit.Assertions
   import ExUnit.Assertions
 
-  alias Anoma.Node.IntentPool
-  alias Anoma.ShieldedResource.ShieldedTransaction
-  alias Anoma.RM.Intent
+  alias Anoma.Node.Transaction.IntentPool
   alias Anoma.RM.DumbIntent
 
   ############################################################
@@ -23,7 +21,7 @@ defmodule Examples.IntentPool do
     name =
       Enum.shuffle(?a..?z) |> Enum.take(20) |> to_string |> String.to_atom()
 
-    {:ok, pid} = GenServer.start_link(Anoma.Node.IntentPool, %{}, name: name)
+    {:ok, pid} = GenServer.start_link(IntentPool, %{}, name: name)
 
     %{intent_pool: %{pid: pid, name: name}}
   end

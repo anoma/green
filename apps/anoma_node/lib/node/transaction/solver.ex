@@ -1,4 +1,4 @@
-defmodule Anoma.Node.Solver do
+defmodule Anoma.Node.Transaction.Solver do
   @moduledoc """
   I am a strawman intent solver for testing purposes.
 
@@ -13,11 +13,11 @@ defmodule Anoma.Node.Solver do
   use TypedStruct
   use GenServer
 
-  alias __MODULE__
-  alias Anoma.Node.IntentPool
+  alias Anoma.Node.Transaction.IntentPool
   alias Anoma.RM.Intent
   alias EventBroker.Event
   alias EventBroker.Filters
+  alias Anoma.Node.Registry
 
   require Logger
 
@@ -30,13 +30,14 @@ defmodule Anoma.Node.Solver do
     I hold the state for the solver process.
 
     ### Fields
-    - `:unsolved`        - The set of unsolved intents.
-    - `:solved`          - The set of solved intents.
-    - `:intent_pool`     - The intent pool process name.
+    - `:node_id`     - The id of the node I belong to.
+    - `:unsolved`    - The set of unsolved intents.
+    - `:solved`      - The set of solved intents.
+    - `:intent_pool` - The intent pool process name.
     """
+    field(:node_id, Id.t())
     field(:unsolved, MapSet.t(Intent.t()), default: MapSet.new())
     field(:solved, MapSet.t(Intent.t()), default: MapSet.new())
-    field(:intent_pool, GenServer.server())
   end
 
   ############################################################
@@ -47,7 +48,9 @@ defmodule Anoma.Node.Solver do
   I create a new solver process .
   """
   def start_link(args) do
-    GenServer.start_link(__MODULE__, args)
+    args = Keyword.validate!(args, [:node_id])
+    name = Registry.name(args[:node_id], __MODULE__)
+    GenServer.start_link(__MODULE__, args, name: name)
   end
 
   ############################################################
@@ -78,20 +81,21 @@ defmodule Anoma.Node.Solver do
 
   @impl true
   def init(args) do
+    Process.set_label(__MODULE__)
     # set default values for the arguments
-    args = Keyword.validate!(args, intent_pool: __MODULE__)
+    args = Keyword.validate!(args, [:node_id])
 
     # subscribe to all new intent pool messages
     subscribe_to_new_intents()
 
     # fetch the unsolved intents from the intent pool
-    unsolved_intents = Enum.to_list(IntentPool.intents(args[:intent_pool]))
+    unsolved_intents =
+      Enum.to_list(IntentPool.intents(args[:node_id]))
 
     state =
-      %Solver{
-        unsolved: MapSet.new(unsolved_intents),
-        intent_pool: args[:intent_pool]
-      }
+      struct(__MODULE__, Enum.into(args, %{}))
+      |> Map.put(:unsolved, MapSet.new(unsolved_intents))
+      |> Map.put(:intent_pool, args[:intent_pool])
 
     {:ok, state}
   end
@@ -236,7 +240,7 @@ defmodule Anoma.Node.Solver do
   @spec subscribe_to_new_intents() :: :ok | String.t()
   defp subscribe_to_new_intents() do
     filter = %Filters.SourceModule{module: IntentPool}
-    EventBroker.subscribe_me(EventBroker.Registry, [filter])
+    EventBroker.subscribe_me([filter])
   end
 
   @doc """

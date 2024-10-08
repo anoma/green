@@ -1,10 +1,11 @@
-defmodule Anoma.Node.IntentPool do
+defmodule Anoma.Node.Transaction.IntentPool do
   @moduledoc """
   I am the intent pool for the Anoma node.
   m1dnight still has to write these docs.
   """
 
-  alias __MODULE__
+  alias Anoma.Node.Registry
+  alias Anoma.Node.Registry
 
   use TypedStruct
   use GenServer
@@ -21,12 +22,13 @@ defmodule Anoma.Node.IntentPool do
     I am the state of the intent pool.
 
     ### Fields
-
+    - `:node_id`       - The id of the node I belong to.
     - `:intents_topic` - The topic to which the intents are published.
-    - `:intents` - The intents in the pool.
-    - `:logger` - The logger for the pool.
+    - `:intents`       - The intents in the pool.
+    - `:logger`        - The logger for the pool.
     """
-    field(:intents_topic, any())
+    field(:node_id, Id.t())
+    field(:intents_topic, any(), default: nil)
     field(:intents, intents, default: MapSet.new())
     field(:logger, any(), enforce: false)
   end
@@ -36,13 +38,20 @@ defmodule Anoma.Node.IntentPool do
   ############################################################
 
   def start_link(args) do
-    GenServer.start_link(__MODULE__, args)
+    args = Keyword.validate!(args, [:node_id])
+    name = Registry.name(args[:node_id], __MODULE__)
+    GenServer.start_link(__MODULE__, args, name: name)
   end
 
   @impl true
   def init(args) do
+    Process.set_label(__MODULE__)
     Logger.debug("starting intent pool with #{inspect(args)}")
-    {:ok, %IntentPool{intents_topic: nil, logger: nil}}
+
+    args = Keyword.validate!(args, [:node_id])
+
+    state = struct(__MODULE__, Enum.into(args, %{}))
+    {:ok, state}
   end
 
   ############################################################
@@ -52,26 +61,29 @@ defmodule Anoma.Node.IntentPool do
   @doc """
   I return the list of current intents.
   """
-  @spec intents() :: MapSet.t()
-  def intents() do
-    Elixir.GenServer.call(__MODULE__, :all_intents)
+  @spec intents(Id.t()) :: MapSet.t()
+  def intents(node_id) do
+    GenServer.call(Registry.name(node_id, __MODULE__), :all_intents)
   end
 
   @doc """
   I add a new intent to the intent pool.
   """
-  @spec new_intent(any()) :: :ok
-  def new_intent(intent) do
-    GenServer.cast(__MODULE__, {:new_intent, intent})
+  @spec new_intent(Id.t(), any()) :: :ok
+  def new_intent(node_id, intent) do
+    GenServer.cast(Registry.name(node_id, __MODULE__), {:new_intent, intent})
   end
 
   @doc """
   I remove an intent from the intent pool.
   If the intent does not exist nothing happens.
   """
-  @spec remove_intent(any()) :: :ok
-  def remove_intent(intent) do
-    GenServer.cast(__MODULE__, {:remove_intent, intent})
+  @spec remove_intent(Id.t(), any()) :: :ok
+  def remove_intent(node_id, intent) do
+    GenServer.cast(
+      Registry.name(node_id, __MODULE__),
+      {:remove_intent, intent}
+    )
   end
 
   ############################################################

@@ -1,6 +1,7 @@
 defmodule Client.Examples.EClient do
   alias Anoma.Node.Examples.ENode
   alias Anoma.Node.Examples.ETransport.ETcp
+  alias Anoma.Crypto.Id
 
   use Example
 
@@ -24,7 +25,7 @@ defmodule Client.Examples.EClient do
     alias Protobufs.NodeInfo
 
     {:ok, channel} = GRPC.Stub.connect("localhost:50051")
-    node_id = Anoma.Crypto.Id.new_keypair()
+    node_id = Id.new_keypair()
 
     node_info = %NodeInfo{
       sign: node_id.external.sign,

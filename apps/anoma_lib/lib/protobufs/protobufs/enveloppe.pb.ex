@@ -237,69 +237,81 @@ defmodule Protobufs.Enveloppe do
     }
   end
 
-  oneof :inner_message, 0
+  oneof(:inner_message, 0)
 
-  field :sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo"
-  field :message_id, 2, type: :bytes, json_name: "messageId"
-  field :announcement, 3, type: Protobufs.Announcement, oneof: 0
+  field(:sender_info, 1, type: Protobufs.NodeInfo, json_name: "senderInfo")
+  field(:message_id, 2, type: :bytes, json_name: "messageId")
+  field(:announcement, 3, type: Protobufs.Announcement, oneof: 0)
 
-  field :list_intents_request, 4,
+  field(:list_intents_request, 4,
     type: Protobufs.IntentPool.ListIntents.Request,
     json_name: "listIntentsRequest",
     oneof: 0
+  )
 
-  field :list_intents_response, 5,
+  field(:list_intents_response, 5,
     type: Protobufs.IntentPool.ListIntents.Response,
     json_name: "listIntentsResponse",
     oneof: 0
+  )
 
-  field :add_intent_request, 6,
+  field(:add_intent_request, 6,
     type: Protobufs.IntentPool.AddIntent.Request,
     json_name: "addIntentRequest",
     oneof: 0
+  )
 
-  field :add_intent_response, 7,
+  field(:add_intent_response, 7,
     type: Protobufs.IntentPool.AddIntent.Response,
     json_name: "addIntentResponse",
     oneof: 0
+  )
 
-  field :nullifiers_request, 8,
+  field(:nullifiers_request, 8,
     type: Protobufs.Indexer.Nullifiers.Request,
     json_name: "nullifiersRequest",
     oneof: 0
+  )
 
-  field :nullifiers_response, 9,
+  field(:nullifiers_response, 9,
     type: Protobufs.Indexer.Nullifiers.Response,
     json_name: "nullifiersResponse",
     oneof: 0
+  )
 
-  field :unrevealed_commits_request, 10,
+  field(:unrevealed_commits_request, 10,
     type: Protobufs.Indexer.UnrevealedCommits.Request,
     json_name: "unrevealedCommitsRequest",
     oneof: 0
+  )
 
-  field :unrevealed_commits_response, 11,
+  field(:unrevealed_commits_response, 11,
     type: Protobufs.Indexer.UnrevealedCommits.Response,
     json_name: "unrevealedCommitsResponse",
     oneof: 0
+  )
 
-  field :unspent_resources_request, 12,
+  field(:unspent_resources_request, 12,
     type: Protobufs.Indexer.UnspentResources.Request,
     json_name: "unspentResourcesRequest",
     oneof: 0
+  )
 
-  field :unspent_resources_response, 13,
+  field(:unspent_resources_response, 13,
     type: Protobufs.Indexer.UnspentResources.Response,
     json_name: "unspentResourcesResponse",
     oneof: 0
+  )
 
-  field :mempool_dump_request, 14,
+  field(:mempool_dump_request, 14,
     type: Protobufs.MemPool.Dump.Request,
     json_name: "mempoolDumpRequest",
     oneof: 0
+  )
 
-  field :mempool_dump_response, 15,
+  field(:mempool_dump_response, 15,
     type: Protobufs.MemPool.Dump.Response,
     json_name: "mempoolDumpResponse",
     oneof: 0
+  )
 end

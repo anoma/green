@@ -12,12 +12,15 @@ defmodule Anoma.Node.Transport.GRPC.Server do
   use GRPC.Server, service: Intents.Service
 
   require Logger
+
   @spec list_intents(ListIntents.Request.t(), Stream.t()) ::
           ListIntents.Response.t()
   def list_intents(request, _stream) do
-    Logger.debug "GRPC #{inspect __ENV__.function} request: #{inspect request}"
+    Logger.debug(
+      "GRPC #{inspect(__ENV__.function)} request: #{inspect(request)}"
+    )
 
-    node_id = request.sender_info
+    _node_id = request.sender_info
 
     %ListIntents.Response{intents: ["intent1", "intent2"]}
   end

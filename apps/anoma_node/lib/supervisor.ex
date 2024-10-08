@@ -31,6 +31,7 @@ defmodule Anoma.Supervisor do
   """
   def start_node(args) do
     args = Keyword.validate!(args, [:node_id, :grpc_port])
+
     DynamicSupervisor.start_child(
       Anoma.Node.NodeSupervisor,
       {Anoma.Node.Supervisor, args}
