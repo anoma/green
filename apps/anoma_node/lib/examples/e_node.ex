@@ -30,9 +30,13 @@ defmodule Anoma.Node.Examples.ENode do
   I start a new node given a node id and returns its process id.
   """
   @spec start_node(any()) :: ENode.t()
-  def start_node(node_id) do
+  def start_node(node_id, opts \\ [grpc_port: 1234]) do
+    opts = Keyword.validate!(opts, [:grpc_port])
+
+    node_args = [node_id: node_id, grpc_port: opts[:grpc_port]]
+
     pid =
-      case Anoma.Supervisor.start_node(node_id: node_id, grpc_port: 1234) do
+      case Anoma.Supervisor.start_node(node_args) do
         {:ok, pid} ->
           pid
 
